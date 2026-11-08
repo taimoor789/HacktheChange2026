@@ -14,7 +14,7 @@
     "type": "fill_blank",
     "difficulty": 1,
     "concept": "sql basics",
-    "prompt": "SQL: which keyword names the table to read from?",
+    "prompt": "SQL: which keyword names the source table of a SELECT?",
     "code": "SELECT name ___ users;",
     "acceptedAnswers": ["FROM"],
     "explanation": "FROM says which table the rows come from."
@@ -52,7 +52,7 @@
     "type": "fill_blank",
     "difficulty": 2,
     "concept": "sql filtering",
-    "prompt": "SQL: which keyword limits how many rows come back?",
+    "prompt": "SQL: which keyword caps how many rows come back?",
     "code": "SELECT * FROM users ___ 5;",
     "acceptedAnswers": ["LIMIT"],
     "explanation": "LIMIT 5 returns at most 5 rows."
@@ -81,7 +81,7 @@
     "type": "fill_blank",
     "difficulty": 3,
     "concept": "sql aggregates",
-    "prompt": "SQL: which function counts rows?",
+    "prompt": "SQL: which aggregate function returns the number of rows?",
     "code": "SELECT ___(*) FROM orders;",
     "acceptedAnswers": ["COUNT"],
     "explanation": "COUNT(*) counts rows. SUM, AVG, MIN and MAX are the other common aggregates."
@@ -91,7 +91,7 @@
     "type": "fill_blank",
     "difficulty": 3,
     "concept": "sql aggregates",
-    "prompt": "SQL: which keyword groups rows so an aggregate runs per group?",
+    "prompt": "SQL: which keyword makes an aggregate like COUNT run once per city instead of once overall?",
     "code": "SELECT city, COUNT(*) FROM users ___ BY city;",
     "acceptedAnswers": ["GROUP"],
     "explanation": "GROUP BY city makes one result row per city."
@@ -200,8 +200,8 @@
     "type": "name_concept",
     "difficulty": 6,
     "concept": "sql design",
-    "prompt": "SQL: which database structure speeds up lookups on a column, like the index of a book?",
-    "acceptedAnswers": ["index"],
+    "prompt": "SQL: which database structure lets the database find rows by a column without scanning the whole table?",
+    "acceptedAnswers": ["index", "indexes"],
     "explanation": "An index lets the database find rows without scanning the whole table, at the cost of slower writes."
   },
   {

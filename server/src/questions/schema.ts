@@ -2,7 +2,7 @@
 // Responsible for: catching malformed questions before they reach a match.
 // Others expect: nothing directly; A only calls the selector (which uses loadBank()).
 import type { Question, QuestionType } from '@beatcode/shared';
-import { LADDER, MAX_TIER } from './ladder';
+import { LADDER, MAX_QUESTION_SECONDS, MAX_TIER } from './ladder';
 import { codeTokens, hasSignificantIndentation } from './answerMatching';
 import tier1 from './bank/tier1.json';
 import tier2 from './bank/tier2.json';
@@ -117,9 +117,9 @@ export function validateQuestion(obj: unknown): ValidationResult {
 
   if (
     q.seconds !== undefined &&
-    (typeof q.seconds !== 'number' || !(q.seconds >= 5 && q.seconds <= 300))
+    (typeof q.seconds !== 'number' || !(q.seconds >= 5 && q.seconds <= MAX_QUESTION_SECONDS))
   ) {
-    errors.push('seconds must be a number between 5 and 300');
+    errors.push(`seconds must be a number between 5 and ${MAX_QUESTION_SECONDS}`);
   }
   if (q.type === 'rewrite_code') {
     if (!code) errors.push('rewrite_code needs the buggy code in `code`');

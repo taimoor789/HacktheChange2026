@@ -36,7 +36,7 @@ describe('suggestAnswer', () => {
 
   it('suggests the intended answer for the example typo', () => {
     expect(suggestAnswer(q, 'strig')).toBe('string');
-    expect(checkAnswer(q, 'strig')).toEqual({ status: 'suggest', suggestion: 'string' });
+    expect(checkAnswer(q, 'strig', 0)).toEqual({ status: 'suggest', suggestion: 'string' });
   });
   it('handles missing, extra, wrong and swapped letters, any case, extra spaces', () => {
     for (const typo of ['sting', 'strinng', 'strang', 'stirng', 'STRIG', '  strig ']) {
@@ -50,12 +50,12 @@ describe('suggestAnswer', () => {
   });
   it('does not suggest for correct answers', () => {
     expect(suggestAnswer(q, 'string')).toBeNull();
-    expect(checkAnswer(q, 'STR')).toEqual({ status: 'correct' });
+    expect(checkAnswer(q, 'STR', 0)).toEqual({ status: 'correct' });
   });
   it('does not suggest for unrelated, empty or oversized input', () => {
     for (const s of ['banana', 'queue', '', '   ', 'x'.repeat(600)])
       expect(suggestAnswer(q, s), s).toBeNull();
-    expect(checkAnswer(q, 'banana')).toEqual({ status: 'wrong' });
+    expect(checkAnswer(q, 'banana', 0)).toEqual({ status: 'wrong' });
   });
   it('forgives more edits for longer answers', () => {
     const long = make({ acceptedAnswers: ['structured query language'] });
@@ -92,7 +92,7 @@ describe('suggestAnswer', () => {
   });
   it('treats a case slip as a typo for case-sensitive output questions', () => {
     const out = make({ type: 'output_prediction', code: 'print(f())', acceptedAnswers: ['None'] });
-    expect(checkAnswer(out, 'none')).toEqual({ status: 'suggest', suggestion: 'None' });
+    expect(checkAnswer(out, 'none', 0)).toEqual({ status: 'suggest', suggestion: 'None' });
   });
 });
 
@@ -156,7 +156,7 @@ describe('hint cap (agreed with Owner A: 1 hint per player per question)', () =>
     expect(MAX_SUGGESTIONS_PER_QUESTION).toBe(1);
   });
   it('gives a hint while hintsUsed is below the cap', () => {
-    expect(checkAnswer(q, 'strig')).toEqual({ status: 'suggest', suggestion: 'string' });
+    expect(checkAnswer(q, 'strig', 0)).toEqual({ status: 'suggest', suggestion: 'string' });
     expect(checkAnswer(q, 'strig', 0)).toEqual({ status: 'suggest', suggestion: 'string' });
   });
   it('treats a near-miss as a plain wrong answer once the cap is reached', () => {
@@ -166,5 +166,25 @@ describe('hint cap (agreed with Owner A: 1 hint per player per question)', () =>
   it('a correct answer is still correct after the cap, and wrong stays wrong', () => {
     expect(checkAnswer(q, 'string', 1)).toEqual({ status: 'correct' });
     expect(checkAnswer(q, 'banana', 0)).toEqual({ status: 'wrong' });
+  });
+});
+
+describe('hintsUsed is required and fails closed', () => {
+  const q = make({});
+
+  it('is a type error to call checkAnswer without hintsUsed', () => {
+    // @ts-expect-error hintsUsed is required so the socket code cannot forget it
+    const result = checkAnswer(q, 'strig');
+    expect(result.status).toBe('wrong'); // and at runtime a forgotten argument gives NO hint
+  });
+  it('treats an unusable hintsUsed as the cap being reached: no hint, never a free pass', () => {
+    for (const bad of [undefined, null, NaN, -1, 1.5, '0', Infinity]) {
+      expect(checkAnswer(q, 'strig', bad as unknown as number).status, String(bad)).toBe('wrong');
+    }
+  });
+  it('a correct answer is still correct whatever hintsUsed is', () => {
+    for (const hints of [0, 1, 5, undefined as unknown as number, NaN]) {
+      expect(checkAnswer(q, 'string', hints).status).toBe('correct');
+    }
   });
 });

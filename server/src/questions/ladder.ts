@@ -36,12 +36,18 @@ export function getTimerSeconds(tier: number): number {
 
 /**
  * Seconds for a specific question. This is the final way to get a round's time (the engine uses it).
- * It is the tier timer, but never less than the question's own `seconds`.
+ * It is the tier timer, but never less than the question's own `seconds`, and never more than MAX_QUESTION_SECONDS.
  * Normal questions get shorter as tiers rise; long/hard ones (e.g. rewrite_code) keep their longer limit.
  */
 export function getQuestionSeconds(question: Pick<Question, 'difficulty' | 'seconds'>): number {
-  return Math.max(getTimerSeconds(question.difficulty), question.seconds ?? 0);
+  return Math.min(
+    MAX_QUESTION_SECONDS,
+    Math.max(getTimerSeconds(question.difficulty), question.seconds ?? 0),
+  );
 }
+
+/** No round is ever longer than this, so the speed bonus always matters (agreed with Owner A). */
+export const MAX_QUESTION_SECONDS = 60;
 
 // NOTE: TierProgress and completeQuestion are not used by the engine; the engine owns tier progression
 // (tier +1 per ROUNDS_PER_TIER rounds). They are kept for now and only used by this module's tests.

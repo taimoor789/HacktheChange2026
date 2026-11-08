@@ -40,7 +40,7 @@ If a tier runs out, the selector falls back to the nearest tier, and repeats onl
 
 ## "Did you mean ...?" typo hints (`suggestion.ts`) - agreed with Owner A
 
-`checkAnswer(question, submitted, hintsUsed = 0)` returns `{status: 'correct'}`, `{status: 'wrong'}` or
+`checkAnswer(question, submitted, hintsUsed)` returns `{status: 'correct'}`, `{status: 'wrong'}` or
 `{status: 'suggest', suggestion}`. A suggestion is a near-miss of an accepted answer ("strig" -> "string").
 
 **A hint never makes an answer count as correct.** `isCorrect("strig")` is `false`. `checkAnswer` says `'correct'`
@@ -48,7 +48,8 @@ exactly when `isCorrect` is true. A player who confirms the hint submits the ful
 submission is judged by `isCorrect` like any other.
 
 - **Cap: 1 hint per player per question** (`MAX_SUGGESTIONS_PER_QUESTION`; a hint reveals the answer). The caller counts
-  hints and passes `hintsUsed`; at the cap a near-miss is a plain `'wrong'`.
+  hints and passes `hintsUsed`, which is **required** (no default). At the cap, or if `hintsUsed` is missing or not a whole
+  number >= 0, a near-miss is a plain `'wrong'`, so a forgotten argument can never disable the cap.
 - **Engine (A):** on `'suggest'` it is not a submission: no lockout, no combo reset, no damage, the timer keeps running and
   `answerMs` is measured at the confirmed submission. The hint goes to that player only via the socket event
   `answer:hint` `{ matchId, round, suggestion }`. That event is a `shared/` change that A proposes in a PR (B must agree);
@@ -63,7 +64,8 @@ submission is judged by `isCorrect` like any other.
 The player sees buggy `code` and types the corrected code (several lines). It is a **heavy** question and a **race** type, like `fill_blank`: the round ends on the first correct answer.
 
 - **Grading** (`isCorrect`): code is compared as tokens. Full-line comments and `;` are ignored. Up to 3 distinct misspelled
-  names/keywords (4+ letters, e.g. `retrun`) are forgiven (approved by A; `MAX_CODE_TYPOS`). Operators, numbers, missing or extra
+  names/keywords (4+ letters, e.g. `retrun`, `functio`) are forgiven (approved by A; `MAX_CODE_TYPOS`). A **real name is never
+  forgiven**: any name used in the solution or shown in the question's code, and any singular/plural flip (`item`/`items`). Operators, numbers, missing or extra
   code and wrong-but-real names are wrong. SQL is case-insensitive. Typing only the fixed line is accepted when listed in
   `acceptedAnswers`. There is no code execution, so equivalent-but-different solutions must be listed in `acceptedAnswers`.
 - **Python: indentation and line breaks are significant** (6 of the 11 questions). Any _consistent_ indent works: 2 spaces,
@@ -73,9 +75,10 @@ The player sees buggy `code` and types the corrected code (several lines). It is
 - **Forgiven-typo report** (optional, for the post-match review): `forgivenTypos(question, submitted)` returns the list of
   forgiven misspellings (`[{ typed: 'retrun', expected: 'return' }]`), `[]` for an exact answer, or `null` if the answer is not
   correct. It is separate from `isCorrect`, which stays a plain boolean.
-- **Timer:** `getQuestionSeconds(question)` = max(tier timer, `question.seconds`). Normal questions get shorter as tiers rise;
-  long questions keep their own longer limit (`seconds`, required >= 30 for `rewrite_code`).
+- **Timer:** `getQuestionSeconds(question)` = max(tier timer, `question.seconds`), **capped at `MAX_QUESTION_SECONDS` = 60**.
+  Normal questions get shorter as tiers rise; long ones keep their own limit (30 to 60, required >= 30 for `rewrite_code`).
+  Questions that need a long rewrite also accept just the fixed line(s), so the shortest accepted answer is typeable in the time
+  (a test checks about 3 characters per second after 15 seconds of thinking).
 - **Engine (A):** use `getQuestionSeconds(q)` for the round time. `isCorrect` is a plain boolean, judged the moment a player submits.
-- **Speed:** grading is pure token comparison: no code execution, no randomness, no clock. It is deterministic and takes about 0.01 ms (worst case 0.15 ms).
 - **B:** needs a multi-line text box (Enter = new line, Ctrl/Cmd+Enter = submit, Tab = 4 spaces). Show the code with line numbers.
 - This adds `rewrite_code` to `QuestionType` and an optional `seconds` to `Question` in `shared/` (all three owners must agree).
