@@ -27,6 +27,24 @@ export function sanitizeDisplayName(raw: unknown): string {
   return cleaned.length > 0 ? cleaned : 'Player';
 }
 
+/** A canonical https://www.linkedin.com/in/... profile link, or null for anything else. */
+export function sanitizeLinkedinUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (text === '' || text.length > 200 || /\s/.test(text)) return null;
+  let url: URL;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase();
+  if (host !== 'linkedin.com' && !host.endsWith('.linkedin.com')) return null;
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password || url.port) return null;
+  const path = url.pathname.replace(/\/+$/, '');
+  return /^\/in\/[^/]+$/.test(path) ? `https://www.linkedin.com${path}` : null;
+}
+
 export function recentFailures(stamps: readonly number[], now: number): number[] {
   return stamps.filter((stamp) => now - stamp < LOBBY_JOIN_WINDOW_MS);
 }

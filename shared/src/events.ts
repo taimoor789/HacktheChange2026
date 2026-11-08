@@ -24,6 +24,7 @@ export const SERVER_EVENTS = {
   ANSWER_HINT: 'answer:hint',
   ULTIMATE_READY: 'ultimate:ready',
   MATCH_END: 'match:end',
+  CONNECT_UPDATE: 'connect:update',
   LOBBY_CREATED: 'lobby:created',
   LOBBY_CLOSED: 'lobby:closed',
   LOBBY_ERROR: 'lobby:error',
@@ -54,11 +55,13 @@ export interface ConnectRequestPayload {
 
 export interface LobbyCreatePayload {
   displayName?: string;
+  linkedinUrl?: string;
 }
 
 export interface LobbyJoinPayload {
   code: string;
   displayName?: string;
+  linkedinUrl?: string;
 }
 
 export type LobbyClosedReason = 'expired' | 'host_left';
@@ -157,6 +160,19 @@ export interface MatchEndPayload {
   reason: MatchEndReason;
 }
 
+/**
+ * waiting: you clicked, your opponent has not. requested: your opponent clicked, you have not.
+ * connected: both clicked, links exchanged. unavailable: your opponent left first.
+ */
+export type ConnectStatus = 'waiting' | 'requested' | 'connected' | 'unavailable';
+
+export interface ConnectUpdatePayload {
+  matchId: string;
+  status: ConnectStatus;
+  /** Only on 'connected'. Null if the opponent added no link. */
+  opponentLinkedinUrl?: string | null;
+}
+
 // ---------- typed Socket.IO maps ----------
 
 export interface ClientToServerEvents {
@@ -175,6 +191,7 @@ export interface ServerToClientEvents {
   [SERVER_EVENTS.ANSWER_HINT]: (p: AnswerHintPayload) => void;
   [SERVER_EVENTS.ULTIMATE_READY]: (p: UltimateReadyPayload) => void;
   [SERVER_EVENTS.MATCH_END]: (p: MatchEndPayload) => void;
+  [SERVER_EVENTS.CONNECT_UPDATE]: (p: ConnectUpdatePayload) => void;
   [SERVER_EVENTS.LOBBY_CREATED]: (p: LobbyCreatedPayload) => void;
   [SERVER_EVENTS.LOBBY_CLOSED]: (p: LobbyClosedPayload) => void;
   [SERVER_EVENTS.LOBBY_ERROR]: (p: LobbyErrorPayload) => void;

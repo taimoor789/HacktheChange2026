@@ -451,6 +451,18 @@ export function createMockSocket(scenario: MockScenario): GameSocket {
       later(() => {
         if (event === CLIENT_EVENTS.QUEUE_JOIN && players[YOU] === undefined) start(args[0] as QueueJoinPayload);
         if (event === CLIENT_EVENTS.ANSWER_SUBMIT) submit(args[0] as AnswerSubmitPayload);
+        if (event === CLIENT_EVENTS.CONNECT_REQUEST) {
+          fire(SERVER_EVENTS.CONNECT_UPDATE, { matchId, status: 'waiting' });
+          later(
+            () =>
+              fire(SERVER_EVENTS.CONNECT_UPDATE, {
+                matchId,
+                status: 'connected',
+                opponentLinkedinUrl: 'https://www.linkedin.com/in/codel-demo',
+              }),
+            1500,
+          );
+        }
       }, 40);
     },
     disconnect() {

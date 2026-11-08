@@ -1,6 +1,6 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
 import { openPopup, type PopupKind } from '../popup';
-import { cleanName, getPlayer, NAME_MAX, setPlayer } from '../state';
+import { cleanLinkedin, cleanName, getPlayer, NAME_MAX, setPlayer } from '../state';
 import type { Page } from '../types';
 import { html, withTimeout } from '../util';
 
@@ -35,11 +35,19 @@ export function createPage(): Page {
         <div class="select__dots" aria-hidden="true"></div>
 
         <form class="select__row" novalidate>
-          <label class="name-field">
-            <span class="name-field__label">ENTER NAME</span>
-            <input class="name-field__input" name="name" maxlength="${NAME_MAX}"
-                   autocomplete="off" spellcheck="false" placeholder="PLAYER" />
-          </label>
+          <div class="select__fields">
+            <label class="name-field">
+              <span class="name-field__label">ENTER NAME</span>
+              <input class="name-field__input" name="name" maxlength="${NAME_MAX}"
+                     autocomplete="off" spellcheck="false" placeholder="PLAYER" />
+            </label>
+            <label class="name-field name-field--link">
+              <span class="name-field__label">LINKEDIN (OPTIONAL)</span>
+              <input class="name-field__input name-field__input--link" name="linkedin" maxlength="200"
+                     inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+                     placeholder="linkedin.com/in/you" />
+            </label>
+          </div>
 
           <div class="play-slot">
             <button class="btn-slot btn-slot--select-play has-art" type="submit"
@@ -74,6 +82,8 @@ export function createPage(): Page {
   const dotsEl = el.querySelector<HTMLElement>('.select__dots')!;
   const input = el.querySelector<HTMLInputElement>('.name-field__input')!;
   const field = el.querySelector<HTMLElement>('.name-field')!;
+  const linkInput = el.querySelector<HTMLInputElement>('.name-field__input--link')!;
+  const linkField = el.querySelector<HTMLElement>('.name-field--link')!;
   const form = el.querySelector('form')!;
   const playBtn = el.querySelector<HTMLButtonElement>('.btn-slot--select-play')!;
   const options = el.querySelector<HTMLElement>('.options')!;
@@ -82,6 +92,7 @@ export function createPage(): Page {
 
 
   input.value = player.name;
+  linkInput.value = player.linkedin;
 
   /* ---------- character carousel ---------- */
   function render(dir = 0) {
@@ -128,6 +139,27 @@ export function createPage(): Page {
     return null;
   }
 
+  /* ---------- optional LinkedIn ---------- */
+  linkInput.addEventListener('input', () => linkField.classList.remove('is-error'));
+
+  /** Blank is fine. Anything else must be a real profile link. */
+  function requireLinkedin() {
+    const raw = linkInput.value.trim();
+    const link = raw ? cleanLinkedin(raw) : '';
+    if (link !== null) {
+      linkInput.value = link;
+      setPlayer({ linkedin: link });
+      return true;
+    }
+    linkField.classList.remove('is-error');
+    void linkField.offsetWidth;
+    linkField.classList.add('is-error');
+    linkInput.focus();
+    return false;
+  }
+
+  const requireProfile = () => Boolean(requireName()) && requireLinkedin();
+
   /* ---------- PLAY -> red options box ---------- */
   function showOptions() {
     playBtn.hidden = true;
@@ -144,16 +176,16 @@ export function createPage(): Page {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (requireName()) showOptions();
+    if (requireProfile()) showOptions();
   });
 
   options.querySelector('.options__close')!.addEventListener('click', hideOptions);
 
   options.querySelectorAll<HTMLButtonElement>('[data-popup]').forEach((b) =>
     b.addEventListener('click', () => {
-      if (!requireName()) {
+      if (!requireProfile()) {
         hideOptions();
-        input.focus();
+        (field.classList.contains('is-error') ? input : linkInput).focus();
         return;
       }
       closePopup = openPopup(b.dataset.popup as PopupKind, el, () => (closePopup = null));
@@ -164,7 +196,7 @@ export function createPage(): Page {
   const onKey = (e: KeyboardEvent) => {
     if (closePopup) return; // popup handles its own keys
     if (e.key === 'Escape' && !options.hidden) return hideOptions();
-    if (document.activeElement === input) return;
+    if (document.activeElement === input || document.activeElement === linkInput) return;
     if (e.key === 'ArrowLeft') cycle(-1);
     if (e.key === 'ArrowRight') cycle(1);
   };

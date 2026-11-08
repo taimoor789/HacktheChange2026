@@ -177,7 +177,7 @@ export function createPage(): Page {
             if (destroyed) return;
             battleMusic.stop(800);
             closePopup?.();
-            const screen = renderEndScreen(p, session.found.you.id, navigate);
+            const screen = renderEndScreen(p, session.found.you.id, navigate, session);
             el.append(screen.el);
             el.classList.add('is-over');
             screen.focus();

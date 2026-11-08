@@ -26,6 +26,8 @@ export interface MatchSession {
   /** Replays every event so far, then forwards new ones. Returns an unsubscribe. */
   listen(fn: (e: ServerEvent) => void): () => void;
   submit(round: number, questionId: string, answer: string): void;
+  /** After the match: ask to swap LinkedIn links with the opponent. */
+  connect(targetPlayerId: string): void;
   /** Close the connection. During a match the server counts this as a forfeit. */
   leave(): void;
 }
@@ -59,7 +61,7 @@ export function currentMatch() {
 const known = (id: string) => CHARACTERS.some((c) => c.id === id);
 
 export function findMatch(
-  player: { name: string; characterId: string },
+  player: { name: string; characterId: string; linkedin?: string },
   req: MatchRequest,
   hooks: FindHooks,
 ): Finder {
@@ -68,10 +70,11 @@ export function findMatch(
   let matched = false;
   let pendingCode: string | null = null;
   const log: ServerEvent[] = [];
+  const linkedinUrl = player.linkedin || undefined;
   const listeners = new Set<(e: ServerEvent) => void>();
 
   const sendJoin = (s: GameSocket, code: string) =>
-    s.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: player.name });
+    s.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: player.name, linkedinUrl });
 
   void openSocket(req.kind === 'mock' ? req.scenario : undefined).then((s) => {
     if (cancelled) return s.disconnect();
@@ -87,6 +90,7 @@ export function findMatch(
       SERVER_EVENTS.ANSWER_HINT,
       SERVER_EVENTS.ULTIMATE_READY,
       SERVER_EVENTS.MATCH_END,
+      SERVER_EVENTS.CONNECT_UPDATE,
     ] as const;
     for (const type of matchEvents) {
       s.on(type, ((payload: never) => {
@@ -113,6 +117,9 @@ export function findMatch(
         submit(round, questionId, answer) {
           s.emit(CLIENT_EVENTS.ANSWER_SUBMIT, { matchId: found.matchId, round, questionId, answer });
         },
+        connect(targetPlayerId) {
+          s.emit(CLIENT_EVENTS.CONNECT_REQUEST, { matchId: found.matchId, targetPlayerId });
+        },
         leave() {
           listeners.clear();
           s.disconnect();
@@ -124,9 +131,9 @@ export function findMatch(
     });
 
     if (req.kind === 'queue' || req.kind === 'mock') {
-      s.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: player.name, characterId: player.characterId });
+      s.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: player.name, characterId: player.characterId, linkedinUrl });
     } else if (req.kind === 'create') {
-      s.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: player.name });
+      s.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: player.name, linkedinUrl });
     } else if (pendingCode) {
       sendJoin(s, pendingCode);
     }

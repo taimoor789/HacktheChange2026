@@ -12,6 +12,8 @@ import {
   STARTING_HP,
   type AnswerSubmitPayload,
   type ClientToServerEvents,
+  type ConnectRequestPayload,
+  type ConnectUpdatePayload,
   type DamageEvent,
   type MatchEndPayload,
   type PlayerRoundOutcome,
@@ -33,6 +35,7 @@ import {
   normalizeLobbyCode,
   recentFailures,
   sanitizeDisplayName,
+  sanitizeLinkedinUrl,
 } from './lobby';
 import { correctAnswerFor } from './matchQuestions';
 import type { ResolveRoundResult } from './engine/resolveRound';
@@ -92,7 +95,9 @@ interface Room {
   matchId: string;
   match: Match;
   sockets: Map<string, Sock>;
-  profiles: Map<string, { name: string; characterId: string }>;
+  profiles: Map<string, { name: string; characterId: string; linkedinUrl: string | null }>;
+  /** Players who pressed Connect after the match. Links are only sent once both have. */
+  connectRequests: Set<string>;
   timers: (() => void)[];
   ended: boolean;
   round: number;
@@ -126,7 +131,10 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
   const pacing = resolvePacing(options.pacing);
   const waiting: Waiting[] = [];
   const rooms = new Map<string, Room>();
-  const lobbies = new Map<string, { host: Sock; displayName: string; createdAt: number; cancel: () => void }>();
+  const lobbies = new Map<
+    string,
+    { host: Sock; displayName: string; linkedinUrl?: string; createdAt: number; cancel: () => void }
+  >();
   const lobbyBySocket = new Map<string, string>();
   const joinFailures = new Map<string, number[]>();
   let matchSeq = 1;
@@ -313,10 +321,17 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         [first.socket.id, first.socket],
         [second.socket.id, second.socket],
       ]),
-      profiles: new Map([
-        [first.socket.id, { name: sanitizeDisplayName(first.payload.name), characterId: first.payload.characterId }],
-        [second.socket.id, { name: sanitizeDisplayName(second.payload.name), characterId: second.payload.characterId }],
-      ]),
+      profiles: new Map(
+        [first, second].map((item) => [
+          item.socket.id,
+          {
+            name: sanitizeDisplayName(item.payload.name),
+            characterId: item.payload.characterId,
+            linkedinUrl: sanitizeLinkedinUrl(item.payload.linkedinUrl),
+          },
+        ]),
+      ),
+      connectRequests: new Set(),
       timers: [],
       ended: false,
       round: 0,
@@ -361,6 +376,40 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     }
   };
 
+  const sendConnect = (
+    socket: Sock,
+    room: Room,
+    status: ConnectUpdatePayload['status'],
+    opponentLinkedinUrl?: string | null,
+  ) => {
+    socket.emit(SERVER_EVENTS.CONNECT_UPDATE, {
+      matchId: room.matchId,
+      status,
+      ...(opponentLinkedinUrl === undefined ? {} : { opponentLinkedinUrl }),
+    });
+  };
+
+  const onConnectRequest = (socket: Sock, payload: ConnectRequestPayload) => {
+    const room = rooms.get(socket.id);
+    if (!room || !room.ended) return;
+    if (!payload || typeof payload !== 'object' || payload.matchId !== room.matchId) return;
+    const otherId = [...room.profiles.keys()].find((id) => id !== socket.id);
+    if (!otherId || payload.targetPlayerId !== otherId) return;
+    const other = room.sockets.get(otherId);
+    if (!other?.connected || !rooms.has(otherId)) {
+      sendConnect(socket, room, 'unavailable');
+      return;
+    }
+    room.connectRequests.add(socket.id);
+    if (room.connectRequests.size < 2) {
+      sendConnect(socket, room, 'waiting');
+      sendConnect(other, room, 'requested');
+      return;
+    }
+    sendConnect(socket, room, 'connected', room.profiles.get(otherId)?.linkedinUrl ?? null);
+    sendConnect(other, room, 'connected', room.profiles.get(socket.id)?.linkedinUrl ?? null);
+  };
+
   io.on('connection', (socket) => {
     socket.on(
       CLIENT_EVENTS.QUEUE_JOIN,
@@ -380,7 +429,10 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       safe((payload: AnswerSubmitPayload) => onSubmit(socket, payload)),
     );
 
-    socket.on(CLIENT_EVENTS.CONNECT_REQUEST, safe(() => {}));
+    socket.on(
+      CLIENT_EVENTS.CONNECT_REQUEST,
+      safe((payload: ConnectRequestPayload) => onConnectRequest(socket, payload)),
+    );
 
     socket.on(
       CLIENT_EVENTS.LOBBY_CREATE,
@@ -400,6 +452,7 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         lobbies.set(code, {
           host: socket,
           displayName: sanitizeDisplayName(payload?.displayName),
+          linkedinUrl: payload?.linkedinUrl,
           createdAt: clock.now(),
           cancel,
         });
@@ -446,10 +499,18 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         }
         const host = lobby.host;
         const hostName = lobby.displayName;
+        const hostLinkedin = lobby.linkedinUrl;
         removeLobby(code);
         openRoom(
-          { socket: host, payload: { name: hostName, characterId: 'player' } },
-          { socket, payload: { name: sanitizeDisplayName(payload?.displayName), characterId: 'player' } },
+          { socket: host, payload: { name: hostName, characterId: 'player', linkedinUrl: hostLinkedin } },
+          {
+            socket,
+            payload: {
+              name: sanitizeDisplayName(payload?.displayName),
+              characterId: 'player',
+              linkedinUrl: payload?.linkedinUrl,
+            },
+          },
         );
       }),
     );
@@ -475,6 +536,11 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         const room = rooms.get(socket.id);
         if (!room || room.ended) {
           rooms.delete(socket.id);
+          if (room && room.connectRequests.size < 2) {
+            for (const [id, other] of room.sockets) {
+              if (id !== socket.id && rooms.has(id) && other.connected) sendConnect(other, room, 'unavailable');
+            }
+          }
           return;
         }
         const otherId = [...room.profiles.keys()].find((id) => id !== socket.id) ?? null;

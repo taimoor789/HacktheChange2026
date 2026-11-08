@@ -445,6 +445,12 @@ body {
   align-items: center;
 }
 
+.select__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 /* Name entry */
 .name-field {
   display: flex;
@@ -967,6 +973,36 @@ body {
 .result__reason { margin: 14px 0 0; font-size: 12px; color: var(--c-yellow); }
 .result__hp { margin: 12px 0 0; font-family: var(--font-term); font-size: 22px; color: #9aa7b3; }
 .result__buttons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 24px 0 8px; }
+.name-field__input--link {
+  height: 48px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.connect { margin: 22px 0 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.connect__btn {
+  padding: 14px 18px;
+  border: 0;
+  font: inherit;
+  font-size: 11px;
+  color: #000;
+  background: var(--c-lime);
+  box-shadow: 0 0 0 4px #000, 0 6px 0 4px var(--c-green);
+  cursor: pointer;
+}
+.connect__btn:hover:not(:disabled), .connect__btn:focus-visible { background: var(--c-yellow); }
+.connect__btn:focus-visible { outline: 2px solid var(--c-ink); outline-offset: 6px; }
+.connect__btn:disabled { color: var(--c-ink); background: #33414d; box-shadow: 0 0 0 4px #000; cursor: wait; }
+.connect__status { margin: 0; min-height: 12px; font-size: 10px; line-height: 1.6; color: var(--c-yellow); }
+.connect.is-waiting .connect__status::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: url(/assets/overlays/loading-ring.svg) center / contain no-repeat;
+}
+.connect__link { font-family: var(--font-term); font-size: 22px; color: var(--c-lime); word-break: break-all; }
 .review__title { margin: 28px 0 14px; font-size: 12px; color: var(--c-green); text-align: left; }
 .review__empty { margin: 0; font-size: 10px; color: #7d8a96; text-align: left; }
 .review {

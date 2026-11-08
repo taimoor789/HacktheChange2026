@@ -2,7 +2,9 @@
  * Match end: who won, why, and a review of every finished round
  * (correct answer and explanation come only now, from match:end).
  */
-import type { MatchEndPayload, MatchEndReason, ReviewItem } from '@beatcode/shared';
+import type { ConnectUpdatePayload, MatchEndPayload, MatchEndReason, ReviewItem } from '@beatcode/shared';
+import type { MatchSession } from '../net/session';
+import { cleanLinkedin } from '../state';
 
 const REASON: Record<MatchEndReason, string> = {
   hp_zero: 'KNOCKOUT',
@@ -55,7 +57,62 @@ function reviewCard(item: ReviewItem, n: number, youId: string, oppId: string, o
   return card;
 }
 
-export function renderEndScreen(p: MatchEndPayload, youId: string, onNav: (path: string) => void) {
+/** "Connect with your opponent": links are swapped only once both players have pressed it. */
+function connectPanel(session: Pick<MatchSession, 'connect' | 'listen'>, oppId: string, oppName: string) {
+  const panel = h('div', 'connect');
+  const button = h('button', 'connect__btn', 'CONNECT WITH YOUR OPPONENT');
+  button.type = 'button';
+  const status = h('p', 'connect__status');
+  status.setAttribute('aria-live', 'polite');
+  panel.append(button, status);
+
+  let finished = false;
+  const setLoading = (loading: boolean) => panel.classList.toggle('is-waiting', loading);
+
+  const finish = (update: ConnectUpdatePayload) => {
+    finished = true;
+    setLoading(false);
+    button.remove();
+    status.textContent = '';
+    if (update.status === 'unavailable') {
+      status.textContent = `${oppName} HAS LEFT`;
+      return;
+    }
+    const link = update.opponentLinkedinUrl ? cleanLinkedin(update.opponentLinkedinUrl) : null;
+    if (!link) {
+      status.textContent = `CONNECTED! ${oppName} DID NOT ADD A LINKEDIN`;
+      return;
+    }
+    status.textContent = `CONNECTED! ${oppName}'S LINKEDIN:`;
+    const a = h('a', 'connect__link', link.replace(/^https:\/\/www\./, ''));
+    a.href = link;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    panel.append(a);
+  };
+
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    button.textContent = 'CONNECTING...';
+    status.textContent = `WAITING FOR ${oppName}...`;
+    setLoading(true);
+    session.connect(oppId);
+  });
+
+  session.listen((e) => {
+    if (e.type !== 'connect:update' || finished) return;
+    if (e.payload.status === 'connected' || e.payload.status === 'unavailable') finish(e.payload);
+    else if (e.payload.status === 'requested') status.textContent = `${oppName} WANTS TO CONNECT`;
+  });
+  return panel;
+}
+
+export function renderEndScreen(
+  p: MatchEndPayload,
+  youId: string,
+  onNav: (path: string) => void,
+  session?: Pick<MatchSession, 'connect' | 'listen'>,
+) {
   const oppId = Object.keys(p.players).find((id) => id !== youId) ?? '';
   const you = p.players[youId];
   const opp = p.players[oppId];
@@ -78,6 +135,9 @@ export function renderEndScreen(p: MatchEndPayload, youId: string, onNav: (path:
     h('p', 'result__reason', reason),
     h('p', 'result__hp', `${you?.name ?? 'YOU'} ${you?.hp ?? 0} HP   ·   ${oppName} ${opp?.hp ?? 0} HP`),
   );
+
+  // A forfeit means the opponent has already gone, so there is nobody to connect with.
+  if (session && oppId && p.reason !== 'forfeit') box.append(connectPanel(session, oppId, oppName));
 
   const buttons = h('div', 'result__buttons');
   for (const [label, path] of [
