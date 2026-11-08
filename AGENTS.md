@@ -36,7 +36,7 @@ Round result:
 - Race types (`fill_blank`, `name_concept`, `output_prediction`, `rewrite_code`) end on the first correct answer. The slower player's streak freezes: no reset and no increment. A wrong answer or a true timeout still resets it.
 - `rewrite_code` is a race. `isCorrect` returns a plain boolean. A typo suggestion from `checkAnswer` is a hint only and is not a correct answer.
 - `spot_the_bug` waits until both have answered or the deadline hits, then the same correctness-then-speed rule applies.
-- Round length is `getQuestionSeconds(question)`: the tier timer, raised to the question's own `seconds` when that is longer, and never more than 60 seconds. The client counts down from `round:start`'s `deadline` and `serverNow`.
+- Round length is `getQuestionSeconds(question)`: the tier timer, raised to the question's own `seconds` when that is longer, and never more than 60 seconds. `round:start` arrives after the pacing delay. The client counts down from that event's `deadline` and `serverNow`.
 - One counted submission per player per round. A hint does not count as that submission.
 - Hit damage is the tier base from `DAMAGE_BY_TIER`, plus a linear speed bonus up to `SPEED_BONUS_MAX` (50% at the instant the round starts, 0 at the deadline). Round to the nearest integer. Only the round winner deals this damage.
 - If neither is correct, both take flat `MISS_DAMAGE`, capped so HP cannot fall below 1. That chip is skipped only on the safety-cap round (`roundNumber === MAX_ROUNDS`), not when the ladder finishes.
@@ -71,7 +71,11 @@ The engine owns tier progression. Do not build on `QUESTIONS_PER_TIER` or `compl
 
 `shared/src/` is the source of truth for events and payloads. Built in Step 5. After a wrong counted answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. Race rounds close on the first correct answer. `spot_the_bug` waits for both counted answers or the deadline. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1. `answer:hint` goes only to the player who typed the near-miss. Option questions, `spot_the_bug`, and `rewrite_code` never hint. Owner B: show "Did you mean: <suggestion>", put it in the input, and submit it on Enter.
 
-Step 7. `queue:join` pairs the next two humans. A second join from the same socket, or a join during a match, is ignored. Disconnecting while waiting leaves the queue. The server ignores a submission that is not a string, is longer than 2000 characters, arrives after `deadline`, names another match, round, or question, comes from a socket that is not in the match, or is a second counted submission in that round. A disconnect during a match emits `match:end` with `reason: "forfeit"` and `winnerId` set to the remaining player.
+Step 7. `queue:join` pairs the next two humans. A second join from the same socket, or a join during a match, is ignored. Disconnecting while waiting leaves the queue. The server ignores a submission that is not a string, is longer than 2000 characters, arrives after `deadline`, names another match, round, or question, comes from a socket that is not in the match, or is a second counted submission in that round. A disconnect during a match emits `match:end` with `reason: "forfeit"` and `winnerId` set to the remaining player. A forfeit cancels any pending gap and ends immediately.
+
+Step 10. The question is not sent with `match:found`. The first `round:start` waits `MATCH_START_DELAY_MS`. Later rounds wait `ROUND_GAP_MS` after `round:result`, or `ROUND_GAP_ULTIMATE_MS` when that round fired an ultimate. `match:end` for `hp_zero`, `tiers_complete`, or `max_rounds` waits `MATCH_END_DELAY_MS` after the final `round:result`. Owner B: show the intro on `match:found` and enable controls when `round:start` arrives. The workaround of showing controls early can go.
+
+Step 11. `lobby:create` returns `lobby:created` with a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`. The host waits. `lobby:join` trims and uppercases the code. If the lobby is open, unexpired, and the host is a different connected socket, the code is removed and both players get `match:found`. Otherwise `lobby:error`. A socket is in only one of the queue, a lobby, or a match (`busy`). Joining your own lobby is `own_lobby`. A used code is `not_found`. The host gets `lobby:closed` `expired` after `LOBBY_TTL_MS`, or `host_left` on `lobby:leave`. Five failed joins per minute, then `rate_limited`. There is no lobby list. Names are trimmed, control characters stripped, cut at 24 characters, or `Player`.
 
 Step 9 (LinkedIn Connect) is postponed. `connect:request`, `linkedinUrl`, and `vsBot` are on the contract and are not implemented. `isBot` is always false.
 
@@ -89,5 +93,6 @@ Leave these constants in `shared/` and do not implement them: comeback (`COMEBAC
 | `round:result` `damage` as `DamageEvent[]`, `answer:hint`, and `match:end` `reason` | Applied in one commit. Pending approval from B and C |
 | Hint cap is 1. The engine passes `hintsUsed` to `checkAnswer` | Applied |
 | `forfeit` on `MatchEndReason` | Applied. Pending approval from B and C |
+| Round pacing and lobby events | Applied. Pending approval from B and C |
 
 `DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, `max_rounds`, or `forfeit`.
