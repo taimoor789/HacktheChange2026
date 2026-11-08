@@ -1,0 +1,51 @@
+[
+  {
+    "id": "t2-loop-1",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "Complete the loop so it runs 5 times.",
+    "code": "for i ___ range(5):\n    print(i)",
+    "acceptedAnswers": ["in"],
+    "explanation": "A for loop iterates over a sequence with 'for x in sequence'."
+  },
+  {
+    "id": "t2-loop-2",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "What does this print?",
+    "code": "total = 0\nfor i in range(4):\n    total += i\nprint(total)",
+    "acceptedAnswers": ["6"],
+    "explanation": "range(4) yields 0,1,2,3. Their sum is 6."
+  },
+  {
+    "id": "t2-cond-1",
+    "type": "name_concept",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "What keyword runs a block only when the previous if condition is false?",
+    "acceptedAnswers": ["else"],
+    "explanation": "else is the fallback branch of an if statement."
+  },
+  {
+    "id": "t2-cond-2",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "What does this print?",
+    "code": "x = 7\nif x > 5 and x < 7:\n    print('A')\nelse:\n    print('B')",
+    "acceptedAnswers": ["B"],
+    "explanation": "x > 5 is true but x < 7 is false, so 'and' is false and the else branch runs."
+  },
+  {
+    "id": "t2-cond-3",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "Which operator checks that two values are equal?",
+    "code": "if a ___ b:\n    print('same')",
+    "acceptedAnswers": ["=="],
+    "explanation": "== compares for equality; = assigns."
+  }
+]

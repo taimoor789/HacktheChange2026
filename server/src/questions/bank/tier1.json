@@ -1,0 +1,50 @@
+[
+  {
+    "id": "t1-var-1",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "Complete the code to store the number 5 in a variable named x.",
+    "code": "x ___ 5",
+    "acceptedAnswers": ["="],
+    "explanation": "The single equals sign assigns a value to a variable. Double equals (==) compares."
+  },
+  {
+    "id": "t1-var-2",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "What is the name for a named location in memory that stores a value?",
+    "acceptedAnswers": ["variable"],
+    "explanation": "A variable is a named storage location whose value can change."
+  },
+  {
+    "id": "t1-syn-1",
+    "type": "output_prediction",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "What does this print?",
+    "code": "print(2 + 3 * 2)",
+    "acceptedAnswers": ["8"],
+    "explanation": "Multiplication happens before addition: 3 * 2 = 6, then 2 + 6 = 8."
+  },
+  {
+    "id": "t1-syn-2",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "Which keyword defines a function in Python?",
+    "code": "___ greet():\n    print('hi')",
+    "acceptedAnswers": ["def"],
+    "explanation": "Python functions are defined with the def keyword."
+  },
+  {
+    "id": "t1-syn-3",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "What symbol starts a single-line comment in Python?",
+    "acceptedAnswers": ["#", "hash", "pound"],
+    "explanation": "Everything after # on a line is ignored by the Python interpreter."
+  }
+]
