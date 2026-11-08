@@ -3,6 +3,11 @@
 import type { Server, Socket } from 'socket.io';
 import {
   CLIENT_EVENTS,
+  LOBBY_TTL_MS,
+  MATCH_END_DELAY_MS,
+  MATCH_START_DELAY_MS,
+  ROUND_GAP_MS,
+  ROUND_GAP_ULTIMATE_MS,
   SERVER_EVENTS,
   STARTING_HP,
   type AnswerSubmitPayload,
@@ -13,17 +18,35 @@ import {
   type PlayerState,
   type QueueJoinPayload,
   type QuestionType,
+  type LobbyCreatePayload,
+  type LobbyErrorReason,
+  type LobbyJoinPayload,
   type Question,
   type ReviewItem,
   type ServerToClientEvents,
 } from '@beatcode/shared';
 import type { Clock } from './match';
 import { Match, type MatchPlayer } from './match';
+import {
+  joinRateLimited,
+  makeLobbyCode,
+  normalizeLobbyCode,
+  recentFailures,
+  sanitizeDisplayName,
+} from './lobby';
 import { correctAnswerFor } from './matchQuestions';
 import type { ResolveRoundResult } from './engine/resolveRound';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
+
+export interface Pacing {
+  matchStartMs: number;
+  roundGapMs: number;
+  roundGapUltimateMs: number;
+  matchEndMs: number;
+  lobbyTtlMs: number;
+}
 
 export interface GameServerOptions {
   clock?: Clock;
@@ -32,6 +55,32 @@ export interface GameServerOptions {
   rng?: () => number;
   preferredType?: QuestionType;
   chooseQuestion?: (tier: number, usedIds: readonly string[], rng: () => number) => Question;
+  /** Overrides the shared delays. Missing fields fall back to env, then the shared constants. */
+  pacing?: Partial<Pacing>;
+}
+
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return fallback;
+  return value;
+}
+
+function resolvePacing(override?: Partial<Pacing>): Pacing {
+  const pacing: Pacing = {
+    matchStartMs: envMs('MATCH_START_DELAY_MS', MATCH_START_DELAY_MS),
+    roundGapMs: envMs('ROUND_GAP_MS', ROUND_GAP_MS),
+    roundGapUltimateMs: envMs('ROUND_GAP_ULTIMATE_MS', ROUND_GAP_ULTIMATE_MS),
+    matchEndMs: envMs('MATCH_END_DELAY_MS', MATCH_END_DELAY_MS),
+    lobbyTtlMs: envMs('LOBBY_TTL_MS', LOBBY_TTL_MS),
+  };
+  if (!override) return pacing;
+  for (const key of Object.keys(override) as (keyof Pacing)[]) {
+    const value = override[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) pacing[key] = value;
+  }
+  return pacing;
 }
 
 interface Waiting {
@@ -74,9 +123,32 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
 export function attachGame(io: IO, options: GameServerOptions = {}): void {
   const clock = options.clock ?? { now: () => Date.now() };
   const schedule = options.schedule ?? defaultSchedule;
+  const pacing = resolvePacing(options.pacing);
   const waiting: Waiting[] = [];
   const rooms = new Map<string, Room>();
+  const lobbies = new Map<string, { host: Sock; displayName: string; createdAt: number; cancel: () => void }>();
+  const lobbyBySocket = new Map<string, string>();
+  const joinFailures = new Map<string, number[]>();
   let matchSeq = 1;
+
+  const isBusy = (socketId: string) =>
+    rooms.has(socketId) || lobbyBySocket.has(socketId) || waiting.some((item) => item.socket.id === socketId);
+
+  const removeLobby = (code: string) => {
+    const lobby = lobbies.get(code);
+    if (!lobby) return;
+    lobby.cancel();
+    lobbies.delete(code);
+    lobbyBySocket.delete(lobby.host.id);
+  };
+
+  const failJoin = (socket: Sock, reason: LobbyErrorReason) => {
+    const now = clock.now();
+    const stamps = recentFailures(joinFailures.get(socket.id) ?? [], now);
+    stamps.push(now);
+    joinFailures.set(socket.id, stamps);
+    socket.emit(SERVER_EVENTS.LOBBY_ERROR, { reason });
+  };
 
   const dropWaiting = (socketId: string) => {
     const index = waiting.findIndex((item) => item.socket.id === socketId);
@@ -182,16 +254,18 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       nextTier: result.nextTier,
     });
     if (result.matchEnd) {
-      endMatch(room, {
+      const payload: MatchEndPayload = {
         matchId: room.matchId,
         winnerId: result.matchEnd.winnerId,
         players: playersOf(room),
         review: reviewOf(room),
         reason: result.matchEnd.reason,
-      });
+      };
+      arm(room, () => endMatch(room, payload), pacing.matchEndMs);
       return;
     }
-    startRound(room);
+    const gap = result.ultimateFired ? pacing.roundGapUltimateMs : pacing.roundGapMs;
+    startRound(room, gap);
   };
 
   const openLiveRound = (room: Room) => {
@@ -215,9 +289,9 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     }, open.durationMs);
   };
 
-  const startRound = (room: Room) => {
+  const startRound = (room: Room, delayMs: number) => {
     if (room.ended) return;
-    arm(room, () => openLiveRound(room), 0);
+    arm(room, () => openLiveRound(room), delayMs);
   };
 
   const openRoom = (first: Waiting, second: Waiting) => {
@@ -240,8 +314,8 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         [second.socket.id, second.socket],
       ]),
       profiles: new Map([
-        [first.socket.id, { name: first.payload.name, characterId: first.payload.characterId }],
-        [second.socket.id, { name: second.payload.name, characterId: second.payload.characterId }],
+        [first.socket.id, { name: sanitizeDisplayName(first.payload.name), characterId: first.payload.characterId }],
+        [second.socket.id, { name: sanitizeDisplayName(second.payload.name), characterId: second.payload.characterId }],
       ]),
       timers: [],
       ended: false,
@@ -262,7 +336,7 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       you: playerState(room, second.socket.id),
       opponent: playerState(room, first.socket.id),
     });
-    startRound(room);
+    startRound(room, pacing.matchStartMs);
   };
 
   const onSubmit = (socket: Sock, payload: AnswerSubmitPayload) => {
@@ -292,7 +366,7 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       CLIENT_EVENTS.QUEUE_JOIN,
       safe((payload: QueueJoinPayload) => {
         if (!payload || typeof payload.name !== 'string' || typeof payload.characterId !== 'string') return;
-        if (rooms.has(socket.id) || waiting.some((item) => item.socket.id === socket.id)) return;
+        if (isBusy(socket.id)) return;
         waiting.push({ socket, payload });
         if (waiting.length < 2) return;
         const first = waiting.shift();
@@ -309,9 +383,95 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     socket.on(CLIENT_EVENTS.CONNECT_REQUEST, safe(() => {}));
 
     socket.on(
+      CLIENT_EVENTS.LOBBY_CREATE,
+      safe((payload?: LobbyCreatePayload) => {
+        if (isBusy(socket.id)) {
+          socket.emit(SERVER_EVENTS.LOBBY_ERROR, { reason: 'busy' });
+          return;
+        }
+        const code = makeLobbyCode(new Set(lobbies.keys()));
+        const cancel = schedule(() => {
+          const lobby = lobbies.get(code);
+          if (!lobby) return;
+          const host = lobby.host;
+          removeLobby(code);
+          host.emit(SERVER_EVENTS.LOBBY_CLOSED, { reason: 'expired' });
+        }, pacing.lobbyTtlMs);
+        lobbies.set(code, {
+          host: socket,
+          displayName: sanitizeDisplayName(payload?.displayName),
+          createdAt: clock.now(),
+          cancel,
+        });
+        lobbyBySocket.set(socket.id, code);
+        socket.emit(SERVER_EVENTS.LOBBY_CREATED, { code });
+      }),
+    );
+
+    socket.on(
+      CLIENT_EVENTS.LOBBY_JOIN,
+      safe((payload?: LobbyJoinPayload) => {
+        const now = clock.now();
+        const stamps = recentFailures(joinFailures.get(socket.id) ?? [], now);
+        joinFailures.set(socket.id, stamps);
+        if (joinRateLimited(stamps, now)) {
+          socket.emit(SERVER_EVENTS.LOBBY_ERROR, { reason: 'rate_limited' });
+          return;
+        }
+        const code = normalizeLobbyCode(payload?.code);
+        const lobby = lobbies.get(code);
+        if (lobby && lobby.host.id === socket.id) {
+          failJoin(socket, 'own_lobby');
+          return;
+        }
+        if (isBusy(socket.id)) {
+          failJoin(socket, 'busy');
+          return;
+        }
+        if (!lobby) {
+          failJoin(socket, 'not_found');
+          return;
+        }
+        if (now >= lobby.createdAt + pacing.lobbyTtlMs) {
+          const host = lobby.host;
+          removeLobby(code);
+          host.emit(SERVER_EVENTS.LOBBY_CLOSED, { reason: 'expired' });
+          failJoin(socket, 'expired');
+          return;
+        }
+        if (!lobby.host.connected) {
+          removeLobby(code);
+          failJoin(socket, 'not_found');
+          return;
+        }
+        const host = lobby.host;
+        const hostName = lobby.displayName;
+        removeLobby(code);
+        openRoom(
+          { socket: host, payload: { name: hostName, characterId: 'player' } },
+          { socket, payload: { name: sanitizeDisplayName(payload?.displayName), characterId: 'player' } },
+        );
+      }),
+    );
+
+    socket.on(
+      CLIENT_EVENTS.LOBBY_LEAVE,
+      safe(() => {
+        const code = lobbyBySocket.get(socket.id);
+        if (!code) return;
+        const lobby = lobbies.get(code);
+        removeLobby(code);
+        lobby?.host.emit(SERVER_EVENTS.LOBBY_CLOSED, { reason: 'host_left' });
+      }),
+    );
+
+    socket.on(
       'disconnect',
       safe(() => {
         dropWaiting(socket.id);
+        joinFailures.delete(socket.id);
+        const code = lobbyBySocket.get(socket.id);
+        if (code) removeLobby(code);
         const room = rooms.get(socket.id);
         if (!room || room.ended) {
           rooms.delete(socket.id);

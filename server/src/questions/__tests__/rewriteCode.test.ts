@@ -431,3 +431,78 @@ describe('rewrite_code round length is capped at 60 seconds (agreed with Owner A
     expect(loadBankReport({ 'tier3.json': [{ ...q, seconds: 60 }] }).errors).toEqual([]);
   });
 });
+
+describe('natural, valid ways of writing a fix are accepted', () => {
+  const rw = (id: string) => rewrites().find((q) => q.id === id)!;
+
+  it.each([
+    ['t3-rw-1', "best = float('-inf')"],
+    ['t3-rw-1', 'best = -float("inf")'],
+    ['t4-rw-1', 'temp = items[left]\nitems[left] = items[right]\nitems[right] = temp'],
+    ['t4-rw-1', 'tmp = items[right]\nitems[right] = items[left]\nitems[left] = tmp'],
+    ['t4-rw-1', 'items[right], items[left] = items[left], items[right]'],
+    ['t4-rw-2', 'for (let i = 0; i < nums.length; i++)'],
+    ['t4-rw-2', 'for (let i = 0; i < nums.length; i++) {'],
+    ['t4-rw-2', 'for (let i = 0; i < nums.length; ++i)'],
+    ['t5-rw-1', 'low = 1 + mid'],
+    ['t5-rw-2', 'while (low <= high)'],
+    ['t5-rw-2', 'while (high >= low)'],
+    ['t5-rw-3', 'return power(base, exp - 1) * base'],
+  ])('%s accepts %j', (id, typed) => {
+    expect(isCorrect(rw(id), typed)).toBe(true);
+  });
+
+  it('accepts an alternative fix inside the whole rewritten function too', () => {
+    const q = rw('t4-rw-1');
+    const typed = q.code!.replace(
+      '        items[left] = items[right]\n        items[right] = items[left]',
+      '        temp = items[left]\n        items[left] = items[right]\n        items[right] = temp',
+    );
+    expect(isCorrect(q, typed)).toBe(true);
+  });
+
+  it.each([
+    ['t4-rw-2', 'for (let i = 1; i < nums.length; i++)'],
+    ['t5-rw-2', 'while (low < high)'],
+    ['t5-rw-2', 'while (low <= high) }'],
+    ['t5-rw-1', 'low = mid'],
+    ['t5-rw-1', 'low = mid - 1'],
+    ['t4-rw-1', 'items[left] = items[right]'],
+    ['t3-rw-1', 'best = 0'],
+  ])('%s still rejects the wrong fix %j', (id, typed) => {
+    expect(isCorrect(rw(id), typed)).toBe(false);
+  });
+
+  it('only treats quotes as equal outside SQL', () => {
+    expect(codeTokens("x = 'a'")).toEqual(codeTokens('x = "a"'));
+    expect(codeTokens("x = 'a'", true)).not.toEqual(codeTokens('x = "a"', true));
+  });
+
+  it('no accepted answer already appears in the buggy code, so nothing is a free win', () => {
+    for (const q of rewrites()) {
+      const ci = q.concept.startsWith('sql');
+      const buggy = ` ${codeTokens(q.code!, ci).join(' ')} `;
+      for (const a of q.acceptedAnswers) {
+        expect(buggy.includes(` ${codeTokens(a, ci).join(' ')} `), `${q.id}: ${a}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('two-word SQL keywords', () => {
+  const bank = () => new Map(loadBank().map((q) => [q.id, q]));
+  it.each([
+    ['t3-sql-2', 'GROUP'],
+    ['t3-sql-2', 'group by'],
+    ['t2-sql-1', 'ORDER'],
+    ['t2-sql-1', 'Order By'],
+    ['t4-sql-1', 'INNER'],
+    ['t4-sql-1', 'inner join'],
+  ])('%s accepts %j', (id, typed) => {
+    expect(isCorrect(bank().get(id)!, typed)).toBe(true);
+  });
+  it('still rejects the wrong keyword', () => {
+    expect(isCorrect(bank().get('t3-sql-2')!, 'ORDER BY')).toBe(false);
+    expect(isCorrect(bank().get('t4-sql-1')!, 'LEFT JOIN')).toBe(false);
+  });
+});

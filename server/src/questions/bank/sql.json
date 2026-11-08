@@ -44,7 +44,7 @@
     "concept": "sql filtering",
     "prompt": "SQL: which keyword sorts the results?",
     "code": "SELECT * FROM users ___ BY age DESC;",
-    "acceptedAnswers": ["ORDER"],
+    "acceptedAnswers": ["ORDER", "ORDER BY"],
     "explanation": "ORDER BY sorts rows. Add DESC for descending order."
   },
   {
@@ -93,7 +93,7 @@
     "concept": "sql aggregates",
     "prompt": "SQL: which keyword makes an aggregate like COUNT run once per city instead of once overall?",
     "code": "SELECT city, COUNT(*) FROM users ___ BY city;",
-    "acceptedAnswers": ["GROUP"],
+    "acceptedAnswers": ["GROUP", "GROUP BY"],
     "explanation": "GROUP BY city makes one result row per city."
   },
   {
@@ -123,7 +123,7 @@
     "concept": "sql joins",
     "prompt": "SQL: which join returns only rows that match in both tables?",
     "code": "SELECT * FROM a ___ JOIN b ON a.id = b.a_id;",
-    "acceptedAnswers": ["INNER"],
+    "acceptedAnswers": ["INNER", "INNER JOIN"],
     "explanation": "INNER JOIN drops rows without a match on either side."
   },
   {
