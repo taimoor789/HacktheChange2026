@@ -879,6 +879,89 @@ body {
 }
 .popup__title--danger { color: #ff5d6c; }
 
+/* ---------- match end + review ---------- */
+.game.is-over .game__quit { display: none; }
+.result {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  padding: 40px 16px;
+  background: rgb(0 0 0 / 0.72);
+  animation: fade-in 240ms steps(4);
+}
+.result__box {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 28px 24px;
+  text-align: center;
+  background: #0a0f14;
+  border: 4px solid var(--c-ink);
+  box-shadow: 0 0 0 4px #000, 0 12px 0 4px var(--c-green);
+}
+.result__title {
+  margin: 0;
+  font-size: 32px;
+  color: var(--c-ink);
+  text-shadow: 4px 4px 0 #000;
+}
+.result__title:focus { outline: none; }
+.result__title[data-tone='good'] { color: var(--c-lime); }
+.result__title[data-tone='bad'] { color: #ff5d6c; }
+.result__reason { margin: 14px 0 0; font-size: 12px; color: var(--c-yellow); }
+.result__hp { margin: 12px 0 0; font-family: var(--font-term); font-size: 22px; color: #9aa7b3; }
+.result__buttons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 24px 0 8px; }
+.review__title { margin: 28px 0 14px; font-size: 12px; color: var(--c-green); text-align: left; }
+.review__empty { margin: 0; font-size: 10px; color: #7d8a96; text-align: left; }
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  user-select: text;
+}
+.review__item {
+  padding: 14px 16px;
+  background: #121a22;
+  box-shadow: inset 4px 0 0 #ff5d6c;
+}
+.review__item[data-result='good'] { box-shadow: inset 4px 0 0 var(--c-lime); }
+.review__meta { margin: 0; font-size: 8px; color: #7d8a96; }
+.review__prompt,
+.review__opts,
+.review__why,
+.review__answers {
+  font-family: var(--font-term);
+  font-size: 20px;
+  line-height: 1.15;
+}
+.review__prompt { margin: 8px 0 0; color: var(--c-ink); }
+.review__opts { margin: 6px 0 0; color: #9aa7b3; }
+.review__code {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-family: var(--font-term);
+  font-size: 18px;
+  color: var(--c-ink);
+  background: #000;
+}
+.review__answers {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 14px;
+  margin: 10px 0 0;
+}
+.review__answers dt { font-family: var(--font-pixel); font-size: 8px; color: #7d8a96; padding-top: 5px; }
+.review__answers dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.review__answers dd[data-tone='good'] { color: var(--c-lime); }
+.review__answers dd[data-tone='bad'] { color: #ff7a6b; }
+.review__answers dd[data-tone='key'] { color: var(--c-yellow); }
+.review__why { margin: 10px 0 0; color: #b9c3cc; }
+
 /* ---------- HUD: live values ---------- */
 .fhud__health i {
   transition: width 360ms steps(6);

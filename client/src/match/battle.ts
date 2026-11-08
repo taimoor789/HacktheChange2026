@@ -15,6 +15,7 @@ import {
   type RoundStartPayload,
 } from '@beatcode/shared';
 import type { MatchSession, ServerEvent } from '../net/session';
+import { endCallout } from './endScreen';
 
 const TYPE_LABEL: Record<QuestionType, string> = {
   fill_blank: 'FILL THE BLANK',
@@ -339,6 +340,8 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     roundOpen = false;
     controls.forEach((c) => (c.disabled = true));
     for (const player of Object.values(p.players)) renderPlayer(player);
+    setStatus('MATCH OVER');
+    showBanner([endCallout(p)], p.winnerId === youId ? 'good' : p.winnerId === null ? '' : 'bad');
     opts.onEnd(p);
   }
 

@@ -1,7 +1,9 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
 import { mountBattle } from '../match/battle';
+import { renderEndScreen } from '../match/endScreen';
 import { currentMatch } from '../net/session';
 import { openPopup } from '../popup';
+import { navigate } from '../router';
 import { getPlayer } from '../state';
 import type { Page } from '../types';
 import { html, videoReady, withTimeout } from '../util';
@@ -24,6 +26,9 @@ const stagePoster = (s: string) => `/assets/video/scenes/${s}-poster.jpg`;
 
 /** When the code has fully turned into scenery in every entry video. */
 const UI_IN_AT = 3.6;
+
+/** Time the end callout (K.O. / time's up / opponent left) stays on the stage. */
+const END_SCREEN_DELAY_MS = 1800;
 
 const entrySfx = new Audio('/assets/audio/game-entry.mp3');
 entrySfx.preload = 'auto';
@@ -116,10 +121,18 @@ export function createPage(): Page {
   });
 
   /* ---------- the match ---------- */
+  let endTimer = 0;
   const unmountBattle = session
     ? mountBattle(el, session, {
-        onEnd: () => {
-          // TODO(OWNER B): end screen + review (next step)
+        onEnd: (p) => {
+          // CUTSCENE: the KO animation for hp_zero plays here, before the end screen opens.
+          endTimer = window.setTimeout(() => {
+            closePopup?.();
+            const screen = renderEndScreen(p, session.found.you.id, navigate);
+            el.append(screen.el);
+            el.classList.add('is-over');
+            screen.focus();
+          }, END_SCREEN_DELAY_MS);
         },
       })
     : null;
@@ -163,6 +176,7 @@ export function createPage(): Page {
     },
     destroy() {
       clearTimeout(fallback);
+      clearTimeout(endTimer);
       closePopup?.();
       unmountBattle?.();
       session?.leave(); // leaving the game page closes the connection (a forfeit mid-match)
