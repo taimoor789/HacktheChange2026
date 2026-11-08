@@ -60,9 +60,16 @@ describe('getNextQuestion', () => {
   it('honours preferredType when one is available, otherwise ignores it', () => {
     const bank = [q('n1', 1), q('f1', 1, 'fill_blank'), q('n2', 1)];
     for (let i = 0; i < 5; i++) {
-      expect(getNextQuestion({ tier: 1, usedIds: [], preferredType: 'fill_blank' }, Math.random, bank).id).toBe('f1');
+      expect(
+        getNextQuestion({ tier: 1, usedIds: [], preferredType: 'fill_blank' }, Math.random, bank)
+          .id,
+      ).toBe('f1');
     }
-    const next = getNextQuestion({ tier: 1, usedIds: ['f1'], preferredType: 'fill_blank' }, () => 0, bank);
+    const next = getNextQuestion(
+      { tier: 1, usedIds: ['f1'], preferredType: 'fill_blank' },
+      () => 0,
+      bank,
+    );
     expect(['n1', 'n2']).toContain(next.id);
   });
 

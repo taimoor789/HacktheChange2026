@@ -69,7 +69,9 @@ describe('loadBankReport catches bad data', () => {
 
   it('reports accepted answers that are not among the options', () => {
     const bad = { ...good, options: ['x', 'y'], acceptedAnswers: ['z'] };
-    expect(loadBankReport({ 'tier1.json': [bad] }).errors.join('\n')).toMatch(/not one of the options/);
+    expect(loadBankReport({ 'tier1.json': [bad] }).errors.join('\n')).toMatch(
+      /not one of the options/,
+    );
   });
 
   it('rejects non-array files and non-object questions', () => {

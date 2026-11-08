@@ -44,7 +44,8 @@ export function validateQuestion(obj: unknown): ValidationResult {
   }
 
   const tier = q.difficulty;
-  const tierOk = typeof tier === 'number' && Number.isInteger(tier) && tier >= 1 && tier <= MAX_TIER;
+  const tierOk =
+    typeof tier === 'number' && Number.isInteger(tier) && tier >= 1 && tier <= MAX_TIER;
   if (!tierOk) errors.push(`difficulty must be an integer 1..${MAX_TIER}`);
 
   if (!isNonEmptyString(q.concept)) {
@@ -56,7 +57,8 @@ export function validateQuestion(obj: unknown): ValidationResult {
   }
 
   if (!isNonEmptyString(q.prompt)) errors.push('prompt must be a non-empty string');
-  if (q.code !== undefined && !isNonEmptyString(q.code)) errors.push('code must be a non-empty string if present');
+  if (q.code !== undefined && !isNonEmptyString(q.code))
+    errors.push('code must be a non-empty string if present');
   if (!isNonEmptyString(q.explanation)) errors.push('explanation must be a non-empty string');
 
   let options: string[] | undefined;
@@ -72,7 +74,11 @@ export function validateQuestion(obj: unknown): ValidationResult {
   }
 
   let answers: string[] | undefined;
-  if (!Array.isArray(q.acceptedAnswers) || q.acceptedAnswers.length === 0 || !q.acceptedAnswers.every(isNonEmptyString)) {
+  if (
+    !Array.isArray(q.acceptedAnswers) ||
+    q.acceptedAnswers.length === 0 ||
+    !q.acceptedAnswers.every(isNonEmptyString)
+  ) {
     errors.push('acceptedAnswers must be a non-empty array of non-empty strings');
   } else {
     answers = q.acceptedAnswers as string[];

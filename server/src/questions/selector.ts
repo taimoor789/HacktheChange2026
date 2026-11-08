@@ -23,7 +23,11 @@ export function tierSearchOrder(tier: number): number[] {
   return order;
 }
 
-function pick(pool: Question[], preferredType: QuestionType | undefined, rng: () => number): Question {
+function pick(
+  pool: Question[],
+  preferredType: QuestionType | undefined,
+  rng: () => number,
+): Question {
   const preferred = preferredType ? pool.filter((q) => q.type === preferredType) : [];
   const from = preferred.length ? preferred : pool;
   return from[Math.floor(rng() * from.length)];
@@ -58,6 +62,8 @@ export function getNextQuestion(
 
 /** Strip acceptedAnswers and explanation. The ONLY thing sent to clients during a round. */
 export function toPublicQuestion(q: Question): PublicQuestion {
-  const { acceptedAnswers: _a, explanation: _e, ...pub } = q;
-  return pub;
+  const pub: Partial<Question> = { ...q };
+  delete pub.acceptedAnswers;
+  delete pub.explanation;
+  return pub as PublicQuestion;
 }
