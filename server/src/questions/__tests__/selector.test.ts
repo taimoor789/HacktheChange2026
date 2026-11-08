@@ -95,3 +95,75 @@ describe('toPublicQuestion', () => {
     }
   });
 });
+
+describe('type-balanced odds', () => {
+  const mix = [
+    ...Array.from({ length: 20 }, (_, i) => q(`n${i}`, 1, 'name_concept')),
+    ...Array.from({ length: 2 }, (_, i) => q(`r${i}`, 1, 'rewrite_code')),
+  ];
+
+  it('picks the type first, so a rare type is not crowded out by a common one', () => {
+    let rewrite = 0;
+    const draws = 4000;
+    for (let i = 0; i < draws; i++) {
+      if (getNextQuestion({ tier: 1, usedIds: [] }, Math.random, mix).type === 'rewrite_code')
+        rewrite++;
+    }
+    // weights 1 vs 1.5 -> about 60% rewrite_code (uniform over questions would give about 9%)
+    expect(rewrite / draws).toBeGreaterThan(0.5);
+    expect(rewrite / draws).toBeLessThan(0.7);
+  });
+
+  it('picks uniformly among the questions of the chosen type', () => {
+    const counts = new Map<string, number>();
+    for (let i = 0; i < 6000; i++) {
+      const next = getNextQuestion(
+        { tier: 1, usedIds: [], preferredType: 'name_concept' },
+        Math.random,
+        mix,
+      );
+      counts.set(next.id, (counts.get(next.id) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(20);
+    for (const n of counts.values()) expect(n).toBeGreaterThan(150); // expected 300 each
+  });
+
+  it('avoids repeating the previous type when another is available', () => {
+    for (let i = 0; i < 300; i++) {
+      const next = getNextQuestion({ tier: 1, usedIds: ['r0'] }, Math.random, mix);
+      expect(next.type).toBe('name_concept');
+    }
+    // but repeats a type when it is the only one left
+    const onlyNames = mix.filter((x) => x.type === 'name_concept');
+    expect(getNextQuestion({ tier: 1, usedIds: ['n0'] }, Math.random, onlyNames).type).toBe(
+      'name_concept',
+    );
+  });
+});
+
+describe('recentIds', () => {
+  const bank = [q('a', 1), q('b', 1), q('c', 1)];
+  it('avoids recent questions when others are available', () => {
+    for (let i = 0; i < 100; i++) {
+      expect(
+        getNextQuestion({ tier: 1, usedIds: [], recentIds: ['a', 'b'] }, Math.random, bank).id,
+      ).toBe('c');
+    }
+  });
+  it('ignores recentIds instead of switching tiers when everything in the tier is recent', () => {
+    const next = getNextQuestion(
+      { tier: 1, usedIds: [], recentIds: ['a', 'b', 'c'] },
+      Math.random,
+      [...bank, q('d', 2)],
+    );
+    expect(next.difficulty).toBe(1);
+  });
+  it('never overrides usedIds', () => {
+    const next = getNextQuestion(
+      { tier: 1, usedIds: ['a', 'b'], recentIds: ['c'] },
+      Math.random,
+      bank,
+    );
+    expect(next.id).toBe('c');
+  });
+});

@@ -41,5 +41,8 @@ export const RACE_MODE_TYPES: readonly QuestionType[] = [
   'output_prediction',
 ];
 
-/** Default: advance one tier every N rounds where at least one player answered correctly. TUNABLE. */
-export const ROUNDS_PER_TIER = 2;
+/**
+ * Questions asked in each tier before moving up. A full climb is QUESTIONS_PER_TIER * MAX_TIER questions
+ * (tier 1, 2 questions, tier 2, 2 questions ... tier 6). Counted per tier, not by round number. TUNABLE.
+ */
+export const QUESTIONS_PER_TIER = 2;

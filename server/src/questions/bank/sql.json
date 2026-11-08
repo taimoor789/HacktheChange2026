@@ -1,0 +1,236 @@
+[
+  {
+    "id": "t1-sql-1",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "sql basics",
+    "prompt": "SQL: which keyword chooses the columns to return?",
+    "code": "___ name FROM users;",
+    "acceptedAnswers": ["SELECT"],
+    "explanation": "SELECT lists the columns you want back."
+  },
+  {
+    "id": "t1-sql-2",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "sql basics",
+    "prompt": "SQL: which keyword names the table to read from?",
+    "code": "SELECT name ___ users;",
+    "acceptedAnswers": ["FROM"],
+    "explanation": "FROM says which table the rows come from."
+  },
+  {
+    "id": "t1-sql-3",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "sql basics",
+    "prompt": "SQL: which clause filters rows by a condition?",
+    "acceptedAnswers": ["WHERE"],
+    "explanation": "WHERE keeps only the rows that match the condition."
+  },
+  {
+    "id": "t1-sql-4",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "sql basics",
+    "prompt": "What does the acronym SQL stand for?",
+    "acceptedAnswers": ["structured query language"],
+    "explanation": "SQL is the Structured Query Language, used to read and change data in relational databases."
+  },
+  {
+    "id": "t2-sql-1",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "sql filtering",
+    "prompt": "SQL: which keyword sorts the results?",
+    "code": "SELECT * FROM users ___ BY age DESC;",
+    "acceptedAnswers": ["ORDER"],
+    "explanation": "ORDER BY sorts rows. Add DESC for descending order."
+  },
+  {
+    "id": "t2-sql-2",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "sql filtering",
+    "prompt": "SQL: which keyword limits how many rows come back?",
+    "code": "SELECT * FROM users ___ 5;",
+    "acceptedAnswers": ["LIMIT"],
+    "explanation": "LIMIT 5 returns at most 5 rows."
+  },
+  {
+    "id": "t2-sql-3",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "sql filtering",
+    "prompt": "SQL: what value does the final query return?",
+    "code": "CREATE TABLE t (n INTEGER);\nINSERT INTO t VALUES (1), (2), (3), (4);\nSELECT COUNT(*) FROM t WHERE n > 2;",
+    "acceptedAnswers": ["2"],
+    "explanation": "Only 3 and 4 are greater than 2, so COUNT(*) is 2."
+  },
+  {
+    "id": "t2-sql-4",
+    "type": "name_concept",
+    "difficulty": 2,
+    "concept": "sql filtering",
+    "prompt": "SQL: which operator matches text against a pattern, such as names starting with A?",
+    "acceptedAnswers": ["LIKE"],
+    "explanation": "LIKE with % wildcards does pattern matching, for example LIKE 'A%'."
+  },
+  {
+    "id": "t3-sql-1",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "sql aggregates",
+    "prompt": "SQL: which function counts rows?",
+    "code": "SELECT ___(*) FROM orders;",
+    "acceptedAnswers": ["COUNT"],
+    "explanation": "COUNT(*) counts rows. SUM, AVG, MIN and MAX are the other common aggregates."
+  },
+  {
+    "id": "t3-sql-2",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "sql aggregates",
+    "prompt": "SQL: which keyword groups rows so an aggregate runs per group?",
+    "code": "SELECT city, COUNT(*) FROM users ___ BY city;",
+    "acceptedAnswers": ["GROUP"],
+    "explanation": "GROUP BY city makes one result row per city."
+  },
+  {
+    "id": "t3-sql-3",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "sql aggregates",
+    "prompt": "SQL: what value does the final query return?",
+    "code": "CREATE TABLE s (v INTEGER);\nINSERT INTO s VALUES (10), (20), (30);\nSELECT SUM(v) FROM s;",
+    "acceptedAnswers": ["60"],
+    "explanation": "SUM adds all the values: 10 + 20 + 30 = 60."
+  },
+  {
+    "id": "t3-sql-4",
+    "type": "spot_the_bug",
+    "difficulty": 3,
+    "concept": "sql aggregates",
+    "prompt": "SQL: this query fails. Which line number is the bug?",
+    "code": "SELECT city, COUNT(*)\nFROM users\nWHERE COUNT(*) > 5\nGROUP BY city;",
+    "acceptedAnswers": ["3"],
+    "explanation": "Aggregates like COUNT cannot be used in WHERE. Filter groups with HAVING after GROUP BY."
+  },
+  {
+    "id": "t4-sql-1",
+    "type": "fill_blank",
+    "difficulty": 4,
+    "concept": "sql joins",
+    "prompt": "SQL: which join returns only rows that match in both tables?",
+    "code": "SELECT * FROM a ___ JOIN b ON a.id = b.a_id;",
+    "acceptedAnswers": ["INNER"],
+    "explanation": "INNER JOIN drops rows without a match on either side."
+  },
+  {
+    "id": "t4-sql-2",
+    "type": "fill_blank",
+    "difficulty": 4,
+    "concept": "sql joins",
+    "prompt": "SQL: which keyword introduces the join condition?",
+    "code": "SELECT * FROM a JOIN b ___ a.id = b.a_id;",
+    "acceptedAnswers": ["ON"],
+    "explanation": "ON says how rows from the two tables are matched."
+  },
+  {
+    "id": "t4-sql-3",
+    "type": "output_prediction",
+    "difficulty": 4,
+    "concept": "sql joins",
+    "prompt": "SQL: what value does the final query return?",
+    "code": "CREATE TABLE a (id INTEGER);\nCREATE TABLE b (a_id INTEGER);\nINSERT INTO a VALUES (1), (2), (3);\nINSERT INTO b VALUES (1), (3), (3);\nSELECT COUNT(*) FROM a JOIN b ON a.id = b.a_id;",
+    "acceptedAnswers": ["3"],
+    "explanation": "Id 1 matches once and id 3 matches twice, id 2 has no match: 3 joined rows."
+  },
+  {
+    "id": "t4-sql-4",
+    "type": "name_concept",
+    "difficulty": 4,
+    "concept": "sql joins",
+    "prompt": "SQL: which join returns only rows that have a match in both tables?",
+    "options": ["INNER JOIN", "LEFT JOIN", "CROSS JOIN", "FULL JOIN"],
+    "acceptedAnswers": ["INNER JOIN"],
+    "explanation": "INNER JOIN keeps only matching rows. LEFT JOIN would also keep unmatched rows from the left table."
+  },
+  {
+    "id": "t5-sql-1",
+    "type": "fill_blank",
+    "difficulty": 5,
+    "concept": "sql advanced",
+    "prompt": "SQL: which keyword filters groups after GROUP BY?",
+    "code": "SELECT city, COUNT(*) FROM users GROUP BY city ___ COUNT(*) > 5;",
+    "acceptedAnswers": ["HAVING"],
+    "explanation": "WHERE filters rows before grouping. HAVING filters groups after aggregation."
+  },
+  {
+    "id": "t5-sql-2",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "sql advanced",
+    "prompt": "SQL: what value does the final query return?",
+    "code": "CREATE TABLE a (id INTEGER);\nCREATE TABLE b (a_id INTEGER);\nINSERT INTO a VALUES (1), (2), (3);\nINSERT INTO b VALUES (1), (3), (3);\nSELECT COUNT(*) FROM a LEFT JOIN b ON a.id = b.a_id;",
+    "acceptedAnswers": ["4"],
+    "explanation": "LEFT JOIN keeps every row of a: id 1 once, id 2 once with no match, id 3 twice. That is 4."
+  },
+  {
+    "id": "t5-sql-3",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "sql advanced",
+    "prompt": "SQL: what is a query nested inside another query called?",
+    "acceptedAnswers": ["subquery", "sub query", "nested query"],
+    "explanation": "A subquery runs inside another query, for example inside WHERE ... IN."
+  },
+  {
+    "id": "t5-sql-4",
+    "type": "spot_the_bug",
+    "difficulty": 5,
+    "concept": "sql advanced",
+    "prompt": "SQL: this returns no rows even when some ages are missing. Which line number is the bug?",
+    "code": "SELECT name\nFROM users\nWHERE age = NULL;",
+    "acceptedAnswers": ["3"],
+    "explanation": "Comparing to NULL with = never matches. Use IS NULL."
+  },
+  {
+    "id": "t6-sql-1",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "sql design",
+    "prompt": "SQL: which database structure speeds up lookups on a column, like the index of a book?",
+    "acceptedAnswers": ["index"],
+    "explanation": "An index lets the database find rows without scanning the whole table, at the cost of slower writes."
+  },
+  {
+    "id": "t6-sql-2",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "sql design",
+    "prompt": "SQL: what kind of key uniquely identifies each row in a table?",
+    "acceptedAnswers": ["primary key"],
+    "explanation": "A primary key is unique and not null for every row."
+  },
+  {
+    "id": "t6-sql-3",
+    "type": "fill_blank",
+    "difficulty": 6,
+    "concept": "sql design",
+    "prompt": "SQL: which keyword permanently saves a transaction?",
+    "code": "BEGIN;\nUPDATE accounts SET bal = bal - 10;\n___;",
+    "acceptedAnswers": ["COMMIT"],
+    "explanation": "COMMIT makes the changes permanent. ROLLBACK would undo them."
+  },
+  {
+    "id": "t6-sql-4",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "sql design",
+    "prompt": "SQL: which ACID property guarantees a transaction happens completely or not at all?",
+    "options": ["Atomicity", "Consistency", "Isolation", "Durability"],
+    "acceptedAnswers": ["Atomicity"],
+    "explanation": "Atomicity means all steps succeed together or none are applied."
+  }
+]

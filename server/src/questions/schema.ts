@@ -3,18 +3,23 @@
 // Others expect: nothing directly; A only calls the selector (which uses loadBank()).
 import type { Question, QuestionType } from '@beatcode/shared';
 import { LADDER, MAX_TIER } from './ladder';
+import { codeTokens } from './answerMatching';
 import tier1 from './bank/tier1.json';
 import tier2 from './bank/tier2.json';
 import tier3 from './bank/tier3.json';
 import tier4 from './bank/tier4.json';
 import tier5 from './bank/tier5.json';
 import tier6 from './bank/tier6.json';
+import javascript from './bank/javascript.json';
+import sql from './bank/sql.json';
+import rewrite from './bank/rewrite.json';
 
 export const QUESTION_TYPES: readonly QuestionType[] = [
   'fill_blank',
   'name_concept',
   'output_prediction',
   'spot_the_bug',
+  'rewrite_code',
 ];
 
 /** Raw bank files keyed by file name. Add a new tier file here. */
@@ -25,6 +30,9 @@ export const BANK_FILES: Record<string, unknown> = {
   'tier4.json': tier4,
   'tier5.json': tier5,
   'tier6.json': tier6,
+  'javascript.json': javascript,
+  'sql.json': sql,
+  'rewrite.json': rewrite,
 };
 
 export type ValidationResult = { ok: true; value: Question } | { ok: false; errors: string[] };
@@ -103,6 +111,40 @@ export function validateQuestion(obj: unknown): ValidationResult {
     for (const a of answers) {
       if (!options.some((o) => o.trim().toLowerCase() === a.trim().toLowerCase())) {
         errors.push(`accepted answer "${a}" is not one of the options`);
+      }
+    }
+  }
+
+  if (
+    q.seconds !== undefined &&
+    (typeof q.seconds !== 'number' || !(q.seconds >= 5 && q.seconds <= 300))
+  ) {
+    errors.push('seconds must be a number between 5 and 300');
+  }
+  if (q.type === 'rewrite_code') {
+    if (!code) errors.push('rewrite_code needs the buggy code in `code`');
+    if (typeof q.seconds !== 'number' || q.seconds < 30) {
+      errors.push('rewrite_code needs seconds >= 30 (typing code takes time)');
+    }
+    if (options) errors.push('rewrite_code cannot have options');
+    if (answers && code) {
+      const ci = typeof q.concept === 'string' && q.concept.startsWith('sql');
+      const buggy = codeTokens(code, ci).join(' ');
+      for (const a of answers) {
+        const t = codeTokens(a, ci).join(' ');
+        if (t === '') errors.push('rewrite_code accepted answer has no code');
+        if (t === buggy) errors.push('rewrite_code accepted answer is identical to the buggy code');
+      }
+    }
+  }
+
+  // Typing speed matters: free-text answers must not need brackets, braces or quotes.
+  if (answers && !options && q.type !== 'spot_the_bug' && q.type !== 'rewrite_code') {
+    for (const a of answers) {
+      if (/[[\]{}()"'`]/.test(a) || a.includes('\n')) {
+        errors.push(
+          `free-text answer "${a}" needs brackets/quotes/newlines: use a shorter answer or options`,
+        );
       }
     }
   }
