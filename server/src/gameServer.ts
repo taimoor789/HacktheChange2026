@@ -44,9 +44,26 @@ interface Room {
   match: Match;
   sockets: Map<string, Sock>;
   profiles: Map<string, { name: string; characterId: string }>;
-  cancel: (() => void) | null;
+  timers: (() => void)[];
   ended: boolean;
   round: number;
+  questionId: string;
+}
+
+const MAX_SUBMIT_CHARS = 2000;
+
+function reportHandlerError(error: unknown) {
+  console.error('[socket] handler error', error);
+}
+
+function safe<A extends unknown[]>(fn: (...args: A) => void): (...args: A) => void {
+  return (...args) => {
+    try {
+      fn(...args);
+    } catch (error) {
+      reportHandlerError(error);
+    }
+  };
 }
 
 const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
@@ -110,11 +127,25 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     return players;
   };
 
+  const clearTimers = (room: Room) => {
+    for (const cancel of room.timers) cancel();
+    room.timers = [];
+  };
+
+  const arm = (room: Room, fn: () => void, ms: number) => {
+    let cancel = () => {};
+    cancel = schedule(() => {
+      room.timers = room.timers.filter((item) => item !== cancel);
+      if (room.ended) return;
+      fn();
+    }, ms);
+    room.timers.push(cancel);
+  };
+
   const endMatch = (room: Room, payload: MatchEndPayload) => {
     if (room.ended) return;
     room.ended = true;
-    room.cancel?.();
-    room.cancel = null;
+    clearTimers(room);
     io.to(room.matchId).emit(SERVER_EVENTS.MATCH_END, payload);
   };
 
@@ -163,11 +194,12 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     startRound(room);
   };
 
-  const startRound = (room: Room) => {
+  const openLiveRound = (room: Room) => {
     if (room.ended) return;
     const open = room.match.beginLiveRound();
     if (!open) return;
     room.round = open.roundNumber;
+    room.questionId = open.questionId;
     const now = clock.now();
     io.to(room.matchId).emit(SERVER_EVENTS.ROUND_START, {
       matchId: room.matchId,
@@ -177,13 +209,15 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       deadline: open.startedAtMs + open.durationMs,
       serverNow: now,
     });
-    room.cancel?.();
-    room.cancel = schedule(() => {
-      room.cancel = null;
-      if (room.ended) return;
+    arm(room, () => {
       const result = room.match.closeLiveRound();
       if (result) publish(room, result);
     }, open.durationMs);
+  };
+
+  const startRound = (room: Room) => {
+    if (room.ended) return;
+    arm(room, () => openLiveRound(room), 0);
   };
 
   const openRoom = (first: Waiting, second: Waiting) => {
@@ -209,9 +243,10 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         [first.socket.id, { name: first.payload.name, characterId: first.payload.characterId }],
         [second.socket.id, { name: second.payload.name, characterId: second.payload.characterId }],
       ]),
-      cancel: null,
+      timers: [],
       ended: false,
       round: 0,
+      questionId: '',
     };
     rooms.set(first.socket.id, room);
     rooms.set(second.socket.id, room);
@@ -232,8 +267,11 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
 
   const onSubmit = (socket: Sock, payload: AnswerSubmitPayload) => {
     const room = rooms.get(socket.id);
-    if (!room || room.ended || room.matchId !== payload.matchId) return;
-    if (typeof payload.answer !== 'string') return;
+    if (!room || room.ended) return;
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.matchId !== room.matchId || payload.round !== room.round) return;
+    if (payload.questionId !== room.questionId) return;
+    if (typeof payload.answer !== 'string' || payload.answer.length > MAX_SUBMIT_CHARS) return;
     const action = room.match.submitLive(socket.id, payload.answer, clock.now());
     if (action.kind === 'hint') {
       socket.emit(SERVER_EVENTS.ANSWER_HINT, {
@@ -244,47 +282,51 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       return;
     }
     if (action.kind === 'finished') {
-      room.cancel?.();
-      room.cancel = null;
+      clearTimers(room);
       publish(room, action.result);
     }
   };
 
   io.on('connection', (socket) => {
-    socket.on(CLIENT_EVENTS.QUEUE_JOIN, (payload) => {
-      if (rooms.has(socket.id) || waiting.some((item) => item.socket.id === socket.id)) return;
-      waiting.push({ socket, payload });
-      if (waiting.length < 2) return;
-      const first = waiting.shift();
-      const second = waiting.shift();
-      if (first && second) openRoom(first, second);
-    });
+    socket.on(
+      CLIENT_EVENTS.QUEUE_JOIN,
+      safe((payload: QueueJoinPayload) => {
+        if (!payload || typeof payload.name !== 'string' || typeof payload.characterId !== 'string') return;
+        if (rooms.has(socket.id) || waiting.some((item) => item.socket.id === socket.id)) return;
+        waiting.push({ socket, payload });
+        if (waiting.length < 2) return;
+        const first = waiting.shift();
+        const second = waiting.shift();
+        if (first && second) openRoom(first, second);
+      }),
+    );
 
-    socket.on(CLIENT_EVENTS.ANSWER_SUBMIT, (payload) => onSubmit(socket, payload));
+    socket.on(
+      CLIENT_EVENTS.ANSWER_SUBMIT,
+      safe((payload: AnswerSubmitPayload) => onSubmit(socket, payload)),
+    );
 
-    socket.on(CLIENT_EVENTS.CONNECT_REQUEST, () => {});
+    socket.on(CLIENT_EVENTS.CONNECT_REQUEST, safe(() => {}));
 
-    socket.on('disconnect', () => {
-      dropWaiting(socket.id);
-      const room = rooms.get(socket.id);
-      if (!room || room.ended) {
-        rooms.delete(socket.id);
-        return;
-      }
-      // TODO(OWNER A): Step 7 forfeit handling is not designed yet.
-      // The match stops so the remaining player is not left in a live round.
-      // No new end reason: this reuses hp_zero until Step 7 decides what a dropout means.
-      room.cancel?.();
-      room.cancel = null;
-      const otherId = [...room.profiles.keys()].find((id) => id !== socket.id);
-      endMatch(room, {
-        matchId: room.matchId,
-        winnerId: otherId ?? null,
-        players: playersOf(room),
-        review: reviewOf(room),
-        reason: 'hp_zero',
-      });
-      for (const id of room.profiles.keys()) rooms.delete(id);
-    });
+    socket.on(
+      'disconnect',
+      safe(() => {
+        dropWaiting(socket.id);
+        const room = rooms.get(socket.id);
+        if (!room || room.ended) {
+          rooms.delete(socket.id);
+          return;
+        }
+        const otherId = [...room.profiles.keys()].find((id) => id !== socket.id) ?? null;
+        endMatch(room, {
+          matchId: room.matchId,
+          winnerId: otherId,
+          players: playersOf(room),
+          review: reviewOf(room),
+          reason: 'forfeit',
+        });
+        for (const id of room.profiles.keys()) rooms.delete(id);
+      }),
+    );
   });
 }

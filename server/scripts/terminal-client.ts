@@ -22,6 +22,7 @@ const socket = io(url, { transports: ['websocket'] });
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 let myId = '';
+let opponentName = 'opponent';
 let matchId = '';
 let round = 0;
 let questionId = '';
@@ -56,8 +57,27 @@ socket.on('connect', () => {
   socket.emit(CLIENT_EVENTS.QUEUE_JOIN, { name, characterId: 'player' });
 });
 
+function side(id: string): string {
+  return id === myId ? 'you' : opponentName;
+}
+
+function endLine(payload: MatchEndPayload): string {
+  if (payload.reason === 'forfeit') {
+    return payload.winnerId === myId ? 'Your opponent left. You win.' : 'You left the match.';
+  }
+  const outcome = payload.winnerId === null ? 'Draw' : payload.winnerId === myId ? 'You win' : 'You lose';
+  const because =
+    payload.reason === 'hp_zero'
+      ? 'Knockout.'
+      : payload.reason === 'tiers_complete'
+        ? 'The ladder is finished.'
+        : 'The round limit was reached.';
+  return `${outcome}. ${because}`;
+}
+
 socket.on(SERVER_EVENTS.MATCH_FOUND, (payload: MatchFoundPayload) => {
   myId = payload.you.id;
+  opponentName = payload.opponent.name;
   matchId = payload.matchId;
   console.log(`Matched with ${payload.opponent.name}.`);
 });
@@ -71,7 +91,7 @@ socket.on(SERVER_EVENTS.ANSWER_HINT, (payload: AnswerHintPayload) => {
 });
 
 socket.on(SERVER_EVENTS.ULTIMATE_READY, (payload: UltimateReadyPayload) => {
-  console.log(`Ultimate ready: ${payload.playerId === myId ? 'you' : payload.playerId}`);
+  console.log(`Ultimate ready: ${side(payload.playerId)}`);
 });
 
 socket.on(SERVER_EVENTS.ROUND_RESULT, (payload: RoundResultPayload) => {
@@ -81,7 +101,7 @@ socket.on(SERVER_EVENTS.ROUND_RESULT, (payload: RoundResultPayload) => {
     payload.damage.length === 0
       ? 'no hit'
       : payload.damage
-          .map((hit) => `${hit.attacker ?? 'miss'} -> ${hit.to} ${hit.attackSize} ${hit.amount}`)
+          .map((hit) => `${hit.attacker ? side(hit.attacker) : 'miss'} -> ${side(hit.to)} ${hit.attackSize} ${hit.amount}`)
           .join(', ');
   console.log(
     `Result: you ${mine?.correct ? 'correct' : mine?.answered ? 'wrong' : 'missed'}` +
@@ -95,9 +115,7 @@ socket.on(SERVER_EVENTS.ROUND_RESULT, (payload: RoundResultPayload) => {
 
 socket.on(SERVER_EVENTS.MATCH_END, (payload: MatchEndPayload) => {
   open = false;
-  const winner =
-    payload.winnerId === null ? 'Draw' : payload.winnerId === myId ? 'You win' : 'You lose';
-  console.log(`${winner} (${payload.reason})`);
+  console.log(endLine(payload));
   rl.close();
   socket.close();
 });
