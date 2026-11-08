@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()],
+  // Read VITE_SERVER_URL and VITE_USE_MOCK from the repo root .env (see .env.example).
   envDir: '..',
   server: { port: 5173 },
 });
