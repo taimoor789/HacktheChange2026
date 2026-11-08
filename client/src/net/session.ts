@@ -74,7 +74,7 @@ export function findMatch(
   const listeners = new Set<(e: ServerEvent) => void>();
 
   const sendJoin = (s: GameSocket, code: string) =>
-    s.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: player.name, linkedinUrl });
+    s.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: player.name, characterId: player.characterId, linkedinUrl });
 
   void openSocket(req.kind === 'mock' ? req.scenario : undefined).then((s) => {
     if (cancelled) return s.disconnect();
@@ -104,8 +104,7 @@ export function findMatch(
     s.on(SERVER_EVENTS.MATCH_FOUND, (found) => {
       if (matched) return;
       matched = true;
-      // TODO(OWNER A): lobby events carry no characterId, so lobby matches arrive as 'player'.
-      // We know our own pick; the opponent's stays unknown until the lobby payloads include it.
+      // Lobby events carry characterId now; an older server sends 'player', so fall back to our own pick.
       if (!known(found.you.characterId)) found = { ...found, you: { ...found.you, characterId: player.characterId } };
       const session: MatchSession = {
         found,
@@ -133,7 +132,7 @@ export function findMatch(
     if (req.kind === 'queue' || req.kind === 'mock') {
       s.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: player.name, characterId: player.characterId, linkedinUrl });
     } else if (req.kind === 'create') {
-      s.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: player.name, linkedinUrl });
+      s.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: player.name, characterId: player.characterId, linkedinUrl });
     } else if (pendingCode) {
       sendJoin(s, pendingCode);
     }

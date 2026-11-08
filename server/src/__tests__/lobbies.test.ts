@@ -177,6 +177,31 @@ describe('private lobbies', () => {
     expect(await busy.next()).toBe('busy');
   });
 
+  it("uses each player's character in a lobby match, and 'player' when it is missing or invalid", async () => {
+    const { url } = await boot();
+    const pair = async (hostCharacter: unknown, guestCharacter: unknown) => {
+      const host = client(url);
+      const guest = client(url);
+      await Promise.all([connected(host), connected(guest)]);
+      const created = new Box<string>();
+      const matched = new Box<MatchFoundPayload>();
+      host.on(SERVER_EVENTS.LOBBY_CREATED, (payload) => created.push(payload.code));
+      host.on(SERVER_EVENTS.MATCH_FOUND, (payload) => matched.push(payload));
+      host.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: 'Ada', characterId: hostCharacter as string });
+      const code = await created.next();
+      guest.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: 'Bea', characterId: guestCharacter as string });
+      return matched.next();
+    };
+
+    const found = await pair('glitch', ' skye ');
+    expect(found.you.characterId).toBe('glitch');
+    expect(found.opponent.characterId).toBe('skye');
+
+    const fallback = await pair(undefined, '<img src=x>');
+    expect(fallback.you.characterId).toBe('player');
+    expect(fallback.opponent.characterId).toBe('player');
+  });
+
   it('rejects a wrong code, your own lobby, and a socket that is already busy', async () => {
     const { url } = await boot();
     const host = client(url);

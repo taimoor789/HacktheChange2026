@@ -34,6 +34,7 @@ import {
   makeLobbyCode,
   normalizeLobbyCode,
   recentFailures,
+  sanitizeCharacterId,
   sanitizeDisplayName,
   sanitizeLinkedinUrl,
 } from './lobby';
@@ -133,7 +134,14 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
   const rooms = new Map<string, Room>();
   const lobbies = new Map<
     string,
-    { host: Sock; displayName: string; linkedinUrl?: string; createdAt: number; cancel: () => void }
+    {
+      host: Sock;
+      displayName: string;
+      characterId: string;
+      linkedinUrl?: string;
+      createdAt: number;
+      cancel: () => void;
+    }
   >();
   const lobbyBySocket = new Map<string, string>();
   const joinFailures = new Map<string, number[]>();
@@ -452,6 +460,7 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         lobbies.set(code, {
           host: socket,
           displayName: sanitizeDisplayName(payload?.displayName),
+          characterId: sanitizeCharacterId(payload?.characterId),
           linkedinUrl: payload?.linkedinUrl,
           createdAt: clock.now(),
           cancel,
@@ -499,15 +508,16 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
         }
         const host = lobby.host;
         const hostName = lobby.displayName;
+        const hostCharacter = lobby.characterId;
         const hostLinkedin = lobby.linkedinUrl;
         removeLobby(code);
         openRoom(
-          { socket: host, payload: { name: hostName, characterId: 'player', linkedinUrl: hostLinkedin } },
+          { socket: host, payload: { name: hostName, characterId: hostCharacter, linkedinUrl: hostLinkedin } },
           {
             socket,
             payload: {
               name: sanitizeDisplayName(payload?.displayName),
-              characterId: 'player',
+              characterId: sanitizeCharacterId(payload?.characterId),
               linkedinUrl: payload?.linkedinUrl,
             },
           },

@@ -75,7 +75,7 @@ Step 7. `queue:join` pairs the next two humans. A second join from the same sock
 
 Step 10. The question is not sent with `match:found`. The first `round:start` waits `MATCH_START_DELAY_MS`. Later rounds wait `ROUND_GAP_MS` after `round:result`, or `ROUND_GAP_ULTIMATE_MS` when that round fired an ultimate. `match:end` for `hp_zero`, `tiers_complete`, or `max_rounds` waits `MATCH_END_DELAY_MS` after the final `round:result`. Owner B: show the intro on `match:found` and enable controls when `round:start` arrives. The workaround of showing controls early can go.
 
-Step 11. `lobby:create` returns `lobby:created` with a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`. The host waits. `lobby:join` trims and uppercases the code. If the lobby is open, unexpired, and the host is a different connected socket, the code is removed and both players get `match:found`. Otherwise `lobby:error`. A socket is in only one of the queue, a lobby, or a match (`busy`). Joining your own lobby is `own_lobby`. A used code is `not_found`. The host gets `lobby:closed` `expired` after `LOBBY_TTL_MS`, or `host_left` on `lobby:leave`. Five failed joins per minute, then `rate_limited`. There is no lobby list. Names are trimmed, control characters stripped, cut at 24 characters, or `Player`.
+Step 11. `lobby:create` returns `lobby:created` with a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`. The host waits. `lobby:join` trims and uppercases the code. If the lobby is open, unexpired, and the host is a different connected socket, the code is removed and both players get `match:found`. Otherwise `lobby:error`. A socket is in only one of the queue, a lobby, or a match (`busy`). Joining your own lobby is `own_lobby`. A used code is `not_found`. The host gets `lobby:closed` `expired` after `LOBBY_TTL_MS`, or `host_left` on `lobby:leave`. Five failed joins per minute, then `rate_limited`. There is no lobby list. Names are trimmed, control characters stripped, cut at 24 characters, or `Player`. Both lobby events take an optional `characterId` like `queue:join`; a missing or invalid one (not 1 to 32 letters, digits, `_` or `-`) is `player`.
 
 Step 9 (LinkedIn Connect) is postponed. `connect:request`, `linkedinUrl`, and `vsBot` are on the contract and are not implemented. `isBot` is always false.
 
@@ -94,5 +94,6 @@ Leave these constants in `shared/` and do not implement them: comeback (`COMEBAC
 | Hint cap is 1. The engine passes `hintsUsed` to `checkAnswer` | Applied |
 | `forfeit` on `MatchEndReason` | Applied. Pending approval from B and C |
 | Round pacing and lobby events | Applied. Pending approval from B and C |
+| Optional `characterId` on `lobby:create` and `lobby:join` | Applied by B. Pending approval from A and C |
 
 `DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, `max_rounds`, or `forfeit`.

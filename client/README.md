@@ -34,7 +34,3 @@ Flow: Home → PLAY → Select Character → PLAY opens the options box → game
 - `src/match/attacks.ts`, `src/match/battleAudio.ts`: on a hit, the attacker's attack GIF (`assets/characters/<id>/attack-{left,right}.gif`) and attack sound (`assets/audio/attacks/`) start together. The sound is picked by hit size: light, medium, heavy, ultimate = variants 1 to 4. Battle music (`assets/audio/battle/`) loops at 25% volume after the intro.
 - `src/match/cutscene.ts`: the winner's finisher, `assets/video/cutscenes/<winner>_vs_<loser>.mp4`. It plays once per match: right after the knockout blow, or after the TIME'S UP callout for a win on time. There is none for a draw, a forfeit or a mirror match. SKIP, Esc, Enter or Space skips it.
 - `src/match/endScreen.ts`: the result and the post-match review, shown after the cutscene.
-
-## Known gaps
-
-- Lobby matches: the server's lobby events carry no character, so the opponent's character is unknown (shown as Glitch, and no cutscene). Needs `characterId` on `lobby:create` / `lobby:join` (Owner A, `shared/`).

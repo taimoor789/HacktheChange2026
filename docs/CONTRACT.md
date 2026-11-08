@@ -26,8 +26,8 @@ Client to server:
 - `queue:join` `{ name, characterId, linkedinUrl?, vsBot? }`
 - `answer:submit` `{ matchId, round, questionId, answer }`
 - `connect:request` `{ matchId, targetPlayerId }`
-- `lobby:create` `{ displayName? }`
-- `lobby:join` `{ code, displayName? }`
+- `lobby:create` `{ displayName?, characterId?, linkedinUrl? }`
+- `lobby:join` `{ code, displayName?, characterId?, linkedinUrl? }`
 - `lobby:leave` (no payload)
 
 Server to client:

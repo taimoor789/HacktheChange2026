@@ -55,12 +55,16 @@ export interface ConnectRequestPayload {
 
 export interface LobbyCreatePayload {
   displayName?: string;
+  /** The host's fighter, as in queue:join. Missing or invalid is 'player'. */
+  characterId?: string;
   linkedinUrl?: string;
 }
 
 export interface LobbyJoinPayload {
   code: string;
   displayName?: string;
+  /** The joining player's fighter, as in queue:join. Missing or invalid is 'player'. */
+  characterId?: string;
   linkedinUrl?: string;
 }
 
