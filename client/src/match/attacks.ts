@@ -36,11 +36,14 @@ export async function playAttack(
   fighter: HTMLElement,
   c: Character,
   facing: Facing,
-  opts: { ultimate?: boolean } = {},
+  opts: { ultimate?: boolean; onStart?: () => void } = {},
 ) {
   const blob = await preloadAttack(c, facing);
   const idle = fighter.querySelector<HTMLImageElement>('.sprite--art:not(.sprite--attack)');
-  if (!blob || !idle) return;
+  if (!blob || !idle) {
+    opts.onStart?.();
+    return;
+  }
 
   fighter.querySelector('.sprite--attack')?.remove(); // a newer attack replaces an unfinished one
   const url = URL.createObjectURL(blob);
@@ -52,6 +55,7 @@ export async function playAttack(
   await img.decode().catch(() => {});
 
   fighter.append(img);
+  opts.onStart?.(); // the attack sound starts with the first frame
   fighter.classList.add('is-attacking');
   fighter.classList.toggle('is-ultimate', !!opts.ultimate);
   await new Promise((r) => setTimeout(r, ATTACK_MS));

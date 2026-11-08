@@ -16,7 +16,8 @@ const LOGO = '/assets/img/logo.png';
 const PLAY_BTN = '/assets/img/btn-play.png';
 
 /** Quiet slow-piano loop for the main page. */
-const homeMusic = new Music('/assets/audio/home-music.m4a', 0.22);
+// 8 bars at 66 BPM: trims the encoder padding at the end of the file
+const homeMusic = new Music('/assets/audio/home-music.m4a', 0.22, { loopSeconds: 8 * 4 * (60 / 66) });
 
 /** Sound for the home page PLAY button. Lives at module level so it keeps
  *  playing through the transition after the home page is torn down. */

@@ -18,6 +18,7 @@ import {
 import { findCharacter, type Character, type Facing } from '../characters';
 import type { MatchSession, ServerEvent } from '../net/session';
 import { ATTACK_HIT_MS, playAttack, preloadAttack } from './attacks';
+import { playAttackSound, preloadAttackSounds } from './battleAudio';
 import { endCallout } from './endScreen';
 
 const TYPE_LABEL: Record<QuestionType, string> = {
@@ -94,7 +95,10 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
       facing: 'left',
     },
   };
-  Object.values(fighters).forEach((f) => void preloadAttack(f.char, f.facing));
+  Object.values(fighters).forEach((f) => {
+    void preloadAttack(f.char, f.facing);
+    preloadAttackSounds(f.char.id);
+  });
   let hudTimer = 0;
 
   let bannerTimer = 0;
@@ -341,15 +345,15 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
       for (const player of Object.values(p.players)) renderPlayer(player);
     };
     clearTimeout(hudTimer);
-    if (hits.length && !reduceMotion) {
-      for (const d of hits) {
-        const f = fighters[d.attacker!];
-        void playAttack(f.el, f.char, f.facing, { ultimate: d.attackSize === 'ultimate' });
-      }
-      hudTimer = window.setTimeout(updateHud, ATTACK_HIT_MS);
-    } else {
-      updateHud();
+    for (const d of hits) {
+      const f = fighters[d.attacker!];
+      // You stand on the left (facing right), the opponent on the right.
+      const sound = () => void playAttackSound(f.char.id, d.attackSize, f.facing === 'right' ? 'left' : 'right');
+      if (reduceMotion) sound();
+      else void playAttack(f.el, f.char, f.facing, { ultimate: d.attackSize === 'ultimate', onStart: sound });
     }
+    if (hits.length && !reduceMotion) hudTimer = window.setTimeout(updateHud, ATTACK_HIT_MS);
+    else updateHud();
 
     const lines: string[] = [];
     if (p.damage.length === 0) lines.push('NO DAMAGE');

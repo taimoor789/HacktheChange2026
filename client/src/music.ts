@@ -8,7 +8,12 @@
  * `data-no-music-unlock`, e.g. the PLAY button, which leaves the page anyway).
  */
 
-const LOOP_SECONDS = 8 * 4 * (60 / 66); // 8 bars at 66 BPM — trims any encoder padding
+export interface MusicOptions {
+  /** Loop length in seconds; trims any encoder padding at the end. Default: the whole file. */
+  loopSeconds?: number;
+  /** Tried when the browser can't decode `url` (e.g. OGG on an older Safari). */
+  fallbackUrl?: string;
+}
 
 export class Music {
   private ctx: AudioContext | null = null;
@@ -22,7 +27,12 @@ export class Music {
   constructor(
     private url: string,
     private volume = 0.25,
+    private opts: MusicOptions = {},
   ) {}
+
+  private get loopSeconds() {
+    return this.opts.loopSeconds ?? Infinity;
+  }
 
   private ensureCtx() {
     if (this.ctx) return this.ctx;
@@ -30,9 +40,12 @@ export class Music {
     this.gain = this.ctx.createGain();
     this.gain.gain.value = 0;
     this.gain.connect(this.ctx.destination);
-    this.buffer = fetch(this.url)
-      .then((r) => r.arrayBuffer())
-      .then((b) => this.ctx!.decodeAudioData(b));
+    const load = (url: string) =>
+      fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((b) => this.ctx!.decodeAudioData(b));
+    const fallback = this.opts.fallbackUrl;
+    this.buffer = fallback ? load(this.url).catch(() => load(fallback)) : load(this.url);
     return this.ctx;
   }
 
@@ -41,7 +54,17 @@ export class Music {
     this.wanted = true;
     const ctx = this.ensureCtx();
     if (ctx.state === 'running') void this.start(fadeMs);
-    else this.waitForUnlock(fadeMs);
+    else {
+      // A new AudioContext starts 'suspended' for a moment even when sound is allowed:
+      // try to resume now, and also start on the next interaction if the browser says no.
+      void ctx
+        .resume()
+        .then(() => {
+          if (this.wanted && ctx.state === 'running') void this.start(fadeMs);
+        })
+        .catch(() => {});
+      this.waitForUnlock(fadeMs);
+    }
   }
 
   /** Fade out and pause, remembering the position for next time. */
@@ -55,20 +78,23 @@ export class Music {
     g.linearRampToValueAtTime(0, now + fadeMs / 1000);
     const src = this.source;
     this.source = null;
-    this.offset = (this.offset + now - this.startedAt) % LOOP_SECONDS;
+    const len = Math.min(this.loopSeconds, src.buffer?.duration ?? Infinity);
+    this.offset = Number.isFinite(len) ? (this.offset + now - this.startedAt) % len : 0;
     src.stop(now + fadeMs / 1000 + 0.05);
   }
 
+  private starting = false;
   private async start(fadeMs: number) {
-    if (this.source || !this.ctx || !this.gain) return;
-    const buf = await this.buffer!;
+    if (this.source || this.starting || !this.ctx || !this.gain) return;
+    this.starting = true;
+    const buf = await this.buffer!.finally(() => (this.starting = false));
     if (!this.wanted || this.source) return;
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     src.loopStart = 0;
-    src.loopEnd = Math.min(LOOP_SECONDS, buf.duration);
+    src.loopEnd = Math.min(this.loopSeconds, buf.duration);
     src.connect(this.gain);
     const now = ctx.currentTime;
     src.start(now, this.offset);

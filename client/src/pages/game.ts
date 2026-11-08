@@ -1,5 +1,6 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
 import { mountBattle } from '../match/battle';
+import { battleMusic } from '../match/battleAudio';
 import { renderEndScreen } from '../match/endScreen';
 import { currentMatch } from '../net/session';
 import { openPopup } from '../popup';
@@ -116,7 +117,15 @@ export function createPage(): Page {
   });
 
   /* ---------- UI reveal ---------- */
-  const showUI = () => el.classList.add('is-live');
+  let musicOn = false;
+  const showUI = () => {
+    el.classList.add('is-live');
+    // battle music starts once the intro (and its entry sound) has cleared
+    if (session && !musicOn && !el.classList.contains('is-over')) {
+      musicOn = true;
+      battleMusic.play(1500);
+    }
+  };
   entry.addEventListener('timeupdate', () => {
     if (entry.currentTime >= UI_IN_AT) showUI();
   });
@@ -136,6 +145,7 @@ export function createPage(): Page {
         onEnd: (p) => {
           // CUTSCENE: the KO animation for hp_zero plays here, before the end screen opens.
           endTimer = window.setTimeout(() => {
+            battleMusic.stop(800);
             closePopup?.();
             const screen = renderEndScreen(p, session.found.you.id, navigate);
             el.append(screen.el);
@@ -189,6 +199,7 @@ export function createPage(): Page {
       closePopup?.();
       unmountBattle?.();
       session?.leave(); // leaving the game page closes the connection (a forfeit mid-match)
+      battleMusic.stop();
       entrySfx.pause();
       for (const v of [entry, loop]) {
         v.pause();
