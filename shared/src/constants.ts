@@ -39,13 +39,14 @@ export const RACE_MODE_TYPES: readonly QuestionType[] = [
   'fill_blank',
   'name_concept',
   'output_prediction',
+  'rewrite_code',
 ];
 
 /** Default: advance one tier every N rounds where at least one player answered correctly. TUNABLE. */
 export const ROUNDS_PER_TIER = 2;
 
-/** Match ends after this many rounds if nobody has reached 0 HP. */
-export const MAX_ROUNDS = 12;
+/** Hard safety cap. A normal match ends earlier, when the ladder is finished or HP hits 0. */
+export const MAX_ROUNDS = 16;
 
 /**
  * Max extra fraction of tier base damage for an instant answer. Linear down to 0 at the deadline.
