@@ -1,6 +1,8 @@
 // Type answers in a real human-vs-human match.
-// Terminal 1: npm run terminal-client -w server -- Ada
-// Terminal 2: npm run terminal-client -w server -- Bea
+// Queue:    npm run terminal-client -w server -- Ada
+//           npm run terminal-client -w server -- Bea
+// Lobby:    npm run terminal-client -w server -- Ada --create
+//           npm run terminal-client -w server -- Bea --join CODE
 // The server must already be running (npm run dev -w server).
 import readline from 'node:readline';
 import { io } from 'socket.io-client';
@@ -8,6 +10,9 @@ import {
   CLIENT_EVENTS,
   SERVER_EVENTS,
   type AnswerHintPayload,
+  type LobbyClosedPayload,
+  type LobbyCreatedPayload,
+  type LobbyErrorPayload,
   type MatchEndPayload,
   type MatchFoundPayload,
   type RoundResultPayload,
@@ -15,8 +20,21 @@ import {
   type UltimateReadyPayload,
 } from '@beatcode/shared';
 
-const name = process.argv[2] ?? 'Player';
-const url = process.argv[3] ?? process.env.SERVER_URL ?? 'http://localhost:3001';
+const args = process.argv.slice(2);
+let name = 'Player';
+let url = process.env.SERVER_URL ?? 'http://localhost:3001';
+let mode: 'queue' | 'create' | 'join' = 'queue';
+let joinCode = '';
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i] ?? '';
+  if (arg === '--create') mode = 'create';
+  else if (arg === '--join') {
+    mode = 'join';
+    joinCode = args[i + 1] ?? '';
+    i += 1;
+  } else if (arg.startsWith('http://') || arg.startsWith('https://')) url = arg;
+  else if (!arg.startsWith('--')) name = arg;
+}
 
 const socket = io(url, { transports: ['websocket'] });
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -53,8 +71,33 @@ rl.on('line', (line) => {
 });
 
 socket.on('connect', () => {
+  if (mode === 'create') {
+    console.log(`Connected as ${name}. Creating a lobby at ${url}.`);
+    socket.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: name });
+    return;
+  }
+  if (mode === 'join') {
+    console.log(`Connected as ${name}. Joining lobby ${joinCode} at ${url}.`);
+    socket.emit(CLIENT_EVENTS.LOBBY_JOIN, { code: joinCode, displayName: name });
+    return;
+  }
   console.log(`Connected as ${name}. Waiting for an opponent at ${url}.`);
   socket.emit(CLIENT_EVENTS.QUEUE_JOIN, { name, characterId: 'player' });
+});
+
+socket.on(SERVER_EVENTS.LOBBY_CREATED, (payload: LobbyCreatedPayload) => {
+  console.log(`Lobby code: ${payload.code}`);
+  console.log('Waiting for an opponent.');
+});
+
+socket.on(SERVER_EVENTS.LOBBY_CLOSED, (payload: LobbyClosedPayload) => {
+  console.log(payload.reason === 'expired' ? 'Lobby expired.' : 'Lobby closed.');
+  rl.close();
+  socket.close();
+});
+
+socket.on(SERVER_EVENTS.LOBBY_ERROR, (payload: LobbyErrorPayload) => {
+  console.log(`Could not use that lobby (${payload.reason}).`);
 });
 
 function side(id: string): string {
