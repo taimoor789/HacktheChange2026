@@ -7,10 +7,13 @@
 //   output_prediction         : case-sensitive; line endings and per-line whitespace ignored; a multi-line
 //                               output may also be typed on one line separated by spaces ("1 2 3").
 //   spot_the_bug              : answer is a 1-based line number of `code` ("3" or "line 3").
-//   rewrite_code              : multi-line. Compared as code tokens: indentation, line breaks, spacing, ";" and
-//                               full-line comments are ignored. Small spelling mistakes in names/keywords are
-//                               forgiven (see matchesCode); any other difference (operators, numbers, missing or
-//                               extra tokens) is wrong. SQL is case-insensitive, other languages are case-sensitive.
+//   rewrite_code              : multi-line. Compared as code tokens. Full-line comments and ";" are ignored.
+//                               Small spelling mistakes in names/keywords are forgiven (see matchesCode); any other
+//                               difference (operators, numbers, missing or extra tokens) is wrong.
+//                               SQL is case-insensitive; other languages are case-sensitive.
+//                               PYTHON: line breaks and indentation LEVELS are significant (they change the meaning).
+//                               Any consistent indent width works (2 spaces, 4 spaces, tab, or a uniform extra indent).
+//                               JavaScript and SQL ignore indentation and line breaks.
 //   options present           : submit the option text (preferred) or its 0-based index. If a submission
 //                               equals an option's text it is always read as text, never as an index.
 import type { Question } from '@beatcode/shared';
@@ -65,16 +68,78 @@ const TOKEN_RE =
   /[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|===|!==|==|!=|<=|>=|<>|\/\/|\*\*|\+\+|--|\+=|-=|\*=|\/=|=>|&&|\|\||\S/g;
 const IDENT_RE = /^[A-Za-z_]\w*$/;
 
-/** Split code into comparable tokens. Whitespace, ";" and full-line comments are dropped. */
-export function codeTokens(src: string, caseInsensitive = false): string[] {
-  const text = src
+const BLOCK_HEADER =
+  /^\s*(?:def|class|if|elif|else|for|while|try|except|finally|with)\b[^\n]*:\s*$/m;
+
+/**
+ * Does indentation change the meaning of this question's code? True for Python (detected from block headers
+ * ending in ":" in the question's code), false for JavaScript and SQL.
+ */
+export function hasSignificantIndentation(question: Pick<Question, 'concept' | 'code'>): boolean {
+  return !question.concept.startsWith('sql') && BLOCK_HEADER.test(question.code ?? '');
+}
+
+const BAD_INDENT = '<bad-indent>';
+const INDENT = '<indent>';
+const DEDENT = '<dedent>';
+const NEWLINE = '<newline>';
+const isCommentLine = (l: string) => /^\s*(#|\/\/|--(\s|$))/.test(l);
+const indentWidth = (l: string) => (/^[ \t]*/.exec(l)?.[0] ?? '').replace(/\t/g, '    ').length;
+
+/**
+ * Split code into comparable tokens. Full-line comments and ";" are dropped.
+ * Default: whitespace and line breaks are ignored (JavaScript, SQL).
+ * `indentSensitive` (Python): each logical line ends with a newline token, and indentation changes become
+ * indent/dedent tokens, so only the nesting structure matters, not the exact width. Lines inside brackets
+ * continue the previous line. A dedent to a level that was never opened is invalid and matches nothing.
+ */
+export function codeTokens(
+  src: string,
+  caseInsensitive = false,
+  indentSensitive = false,
+): string[] {
+  const fix = (t: string) => (caseInsensitive ? t.toLowerCase() : t);
+  const lines = src
     .replace(/\r\n?/g, '\n')
     .split('\n')
-    .filter((l) => !/^\s*(#|\/\/|--(\s|$))/.test(l))
-    .join('\n');
-  return (text.match(TOKEN_RE) ?? [])
-    .filter((t) => t !== ';')
-    .map((t) => (caseInsensitive ? t.toLowerCase() : t));
+    .filter((l) => !isCommentLine(l));
+
+  if (!indentSensitive) {
+    return (lines.join('\n').match(TOKEN_RE) ?? []).filter((t) => t !== ';').map(fix);
+  }
+
+  const out: string[] = [];
+  const stack: number[] = [];
+  let depth = 0; // open brackets carried over from earlier lines
+  for (const raw of lines) {
+    if (raw.trim() === '') continue;
+    // a trailing "# note" comment (only when the line has no quotes, so strings are never cut)
+    const line = /['"`]/.test(raw) ? raw : raw.replace(/\s+#.*$/, '');
+    const lineTokens = (line.match(TOKEN_RE) ?? []).filter((x) => x !== ';');
+    if (lineTokens.length === 0) continue; // e.g. a lone ";"
+    if (depth === 0) {
+      const width = indentWidth(line);
+      if (stack.length === 0) stack.push(width);
+      else if (width > stack[stack.length - 1]) {
+        stack.push(width);
+        out.push(INDENT);
+      } else {
+        while (stack.length > 0 && width < stack[stack.length - 1]) {
+          stack.pop();
+          out.push(DEDENT);
+        }
+        if (stack.length === 0 || stack[stack.length - 1] !== width) return [BAD_INDENT];
+      }
+    }
+    for (const t of lineTokens) {
+      if ('([{'.includes(t)) depth++;
+      else if (')]}'.includes(t)) depth = Math.max(0, depth - 1);
+      out.push(fix(t));
+    }
+    if (depth === 0) out.push(NEWLINE);
+  }
+  for (let i = 1; i < stack.length; i++) out.push(DEDENT);
+  return out;
 }
 
 /**
@@ -83,9 +148,25 @@ export function codeTokens(src: string, caseInsensitive = false): string[] {
  * itself a different name used in the reference (item vs items) is a real mistake, not a typo.
  */
 export function matchesCode(typed: string[], reference: string[]): boolean {
-  if (typed.length === 0 || typed.length !== reference.length) return false;
+  return codeMatch(typed, reference).ok;
+}
+
+export interface ForgivenTypo {
+  /** What the player typed, e.g. "retrun". */
+  typed: string;
+  /** What it should have been, e.g. "return". */
+  expected: string;
+}
+
+/** Like matchesCode, but also reports which misspellings were forgiven (distinct, in order of appearance). */
+export function codeMatch(
+  typed: string[],
+  reference: string[],
+): { ok: boolean; typos: ForgivenTypo[] } {
+  const fail = { ok: false, typos: [] as ForgivenTypo[] };
+  if (typed.length === 0 || typed.length !== reference.length) return fail;
   const vocabulary = new Set(reference.filter((t) => IDENT_RE.test(t)));
-  const typos = new Set<string>(); // distinct misspellings: the same slip used twice counts once
+  const typos = new Map<string, ForgivenTypo>(); // distinct misspellings: the same slip used twice counts once
   for (let i = 0; i < typed.length; i++) {
     const a = typed[i];
     const b = reference[i];
@@ -96,13 +177,37 @@ export function matchesCode(typed: string[], reference: string[]): boolean {
       Math.min(a.length, b.length) >= 4 &&
       !vocabulary.has(a) &&
       editDistance(a, b) <= (Math.max(a.length, b.length) >= 9 ? 2 : 1);
-    if (!near) return false;
-    typos.add(`${a}>${b}`);
-    if (typos.size > MAX_CODE_TYPOS) return false;
+    if (!near) return fail;
+    typos.set(`${a}>${b}`, { typed: a, expected: b });
+    if (typos.size > MAX_CODE_TYPOS) return fail;
   }
-  return true;
+  return { ok: true, typos: [...typos.values()] };
 }
 
+/**
+ * For the post-match review: which misspellings did isCorrect forgive in this rewrite_code answer?
+ * Returns null if the answer is not a correct rewrite_code answer, [] if it was exact. Separate from
+ * isCorrect, which stays a plain boolean. Pure and deterministic.
+ */
+export function forgivenTypos(question: Question, submitted: string): ForgivenTypo[] | null {
+  if (question.type !== 'rewrite_code' || !isCorrect(question, submitted)) return null;
+  const ci = question.concept.startsWith('sql');
+  const ind = hasSignificantIndentation(question);
+  const typed = codeTokens(submitted, ci, ind);
+  let best: ForgivenTypo[] | null = null;
+  for (const answer of question.acceptedAnswers) {
+    const result = codeMatch(typed, codeTokens(answer, ci, ind));
+    if (result.ok && (best === null || result.typos.length < best.length)) best = result.typos;
+  }
+  return best;
+}
+
+/**
+ * The ONLY judge of a submitted answer. Returns a plain boolean: there is no partial credit, and a typo
+ * suggestion (see suggestion.ts) never makes this return true.
+ * Pure and deterministic: no code execution, no randomness, no clock, no I/O. It runs the moment a player
+ * submits in a race, and takes well under a millisecond even for long rewrite_code answers.
+ */
 export function isCorrect(question: Question, submitted: string): boolean {
   if (typeof submitted !== 'string') return false;
   const maxLength = question.type === 'rewrite_code' ? MAX_CODE_ANSWER_LENGTH : MAX_ANSWER_LENGTH;
@@ -127,8 +232,9 @@ export function isCorrect(question: Question, submitted: string): boolean {
     }
     case 'rewrite_code': {
       const ci = question.concept.startsWith('sql');
-      const typed = codeTokens(submitted, ci);
-      return question.acceptedAnswers.some((a) => matchesCode(typed, codeTokens(a, ci)));
+      const ind = hasSignificantIndentation(question);
+      const typed = codeTokens(submitted, ci, ind);
+      return question.acceptedAnswers.some((a) => matchesCode(typed, codeTokens(a, ci, ind)));
     }
     default:
       return false;

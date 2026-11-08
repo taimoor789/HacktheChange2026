@@ -1,22 +1,28 @@
 // OWNER C: "Did you mean ...?" typo suggestions.
-// Responsible for: spotting a near-miss answer ("strig" for "string") and returning the intended answer
-//   WITHOUT scoring it. The player confirms by submitting the suggestion (Enter) or retypes something else.
-// Others expect:
-//   - OWNER A: call checkAnswer(question, submitted) instead of isCorrect on answer:submit.
-//       'correct' -> score it.  'wrong' -> wrong answer.
-//       'suggest' -> do NOT penalise (no lockout, no combo reset, no damage), send the suggestion to that
-//       player only, and keep the round open. Stop suggesting after MAX_SUGGESTIONS_PER_QUESTION.
+// Responsible for: spotting a near-miss answer ("strig" for "string") and returning the intended answer.
+//   A suggestion is a HINT ONLY. It never makes an answer count as correct: isCorrect("strig") is false.
+//   The player confirms by submitting the full suggestion (Enter), which isCorrect then judges as normal.
+// Agreed with OWNER A (the engine):
+//   - Call checkAnswer(question, submitted, hintsUsed) on submit. 'correct' -> score it (exactly when isCorrect is
+//     true). 'wrong' -> normal wrong answer. 'suggest' -> NOT a submission: no lockout, no combo reset, no damage,
+//     the timer keeps running, answerMs is measured at the confirmed submission.
+//   - Send the suggestion to that player only, via the socket event answer:hint { matchId, round, suggestion}.
+//     (A proposes that event in a shared/ PR; B must agree. It is NOT added to shared/ by this module.)
+//   - 1 hint per player per question (MAX_SUGGESTIONS_PER_QUESTION). Pass hintsUsed; at the cap you get 'wrong'.
+//   - Typed single-line question types only: never 'suggest' for rewrite_code, spot_the_bug or option questions.
 //   - OWNER B: show "Did you mean: <suggestion>", put it in the input, and submit it on Enter.
 //   The suggestion always comes from acceptedAnswers, so submitting it is guaranteed to be correct.
-//   NOTE: this needs a new server->client socket event, which is a shared/ contract change (all 3 owners).
 import type { Question } from '@beatcode/shared';
 import { isCorrect, normalizeLoose, normalizeOutput } from './answerMatching';
 import { editDistance } from './editDistance';
 
 export { editDistance };
 
-/** After this many suggestions for one question, judge normally (stops answer-probing). */
-export const MAX_SUGGESTIONS_PER_QUESTION = 3;
+/**
+ * Hints per player per question. A hint reveals the answer, so one is the cap: after that, a near-miss is an
+ * ordinary wrong answer (stops answer-probing). The caller counts hints and passes `hintsUsed` to checkAnswer.
+ */
+export const MAX_SUGGESTIONS_PER_QUESTION = 1;
 
 export type AnswerCheck =
   { status: 'correct' } | { status: 'suggest'; suggestion: string } | { status: 'wrong' };
@@ -69,9 +75,14 @@ export function suggestAnswer(question: Question, submitted: string): string | n
   return best ? best.answer : null;
 }
 
-/** correct / suggest / wrong, in one call. */
-export function checkAnswer(question: Question, submitted: string): AnswerCheck {
+/**
+ * correct / suggest / wrong, in one call.
+ * 'correct' exactly when isCorrect is true. `hintsUsed` = hints already given to THIS player for THIS question;
+ * once it reaches MAX_SUGGESTIONS_PER_QUESTION a near-miss is plain 'wrong'. Never 'suggest' for rewrite_code.
+ */
+export function checkAnswer(question: Question, submitted: string, hintsUsed = 0): AnswerCheck {
   if (isCorrect(question, submitted)) return { status: 'correct' };
+  if (hintsUsed >= MAX_SUGGESTIONS_PER_QUESTION) return { status: 'wrong' };
   const suggestion = suggestAnswer(question, submitted);
   return suggestion === null ? { status: 'wrong' } : { status: 'suggest', suggestion };
 }

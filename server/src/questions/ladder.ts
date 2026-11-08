@@ -1,6 +1,6 @@
 // OWNER C: concept ladder + timer table access.
 // Responsible for: ordered concepts by tier (simple -> advanced) and the timer per tier.
-// Others expect: A calls getTimerSeconds(tier) to set round deadlines; MAX_TIER comes from shared.
+// Others expect: the engine calls getQuestionSeconds(question) for a round's time; MAX_TIER comes from shared.
 import {
   MAX_TIER,
   QUESTIONS_PER_TIER,
@@ -35,13 +35,16 @@ export function getTimerSeconds(tier: number): number {
 }
 
 /**
- * Seconds for a specific question: the tier timer, but never less than the question's own `seconds`.
+ * Seconds for a specific question. This is the final way to get a round's time (the engine uses it).
+ * It is the tier timer, but never less than the question's own `seconds`.
  * Normal questions get shorter as tiers rise; long/hard ones (e.g. rewrite_code) keep their longer limit.
  */
 export function getQuestionSeconds(question: Pick<Question, 'difficulty' | 'seconds'>): number {
   return Math.max(getTimerSeconds(question.difficulty), question.seconds ?? 0);
 }
 
+// NOTE: TierProgress and completeQuestion are not used by the engine; the engine owns tier progression
+// (tier +1 per ROUNDS_PER_TIER rounds). They are kept for now and only used by this module's tests.
 export interface TierProgress {
   /** Tier of the question that was just asked. */
   tier: number;
@@ -50,6 +53,7 @@ export interface TierProgress {
 }
 
 /**
+ * Not used by the engine; the engine owns tier progression. Kept for now (see note above).
  * Call once each time a question has been asked and resolved. Moves up a tier after
  * QUESTIONS_PER_TIER questions in the current tier, all the way to MAX_TIER.
  * `finished` is true when the last question of the last tier was just completed (the ladder is done);

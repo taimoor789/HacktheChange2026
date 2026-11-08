@@ -3,7 +3,7 @@
 // Others expect: nothing directly; A only calls the selector (which uses loadBank()).
 import type { Question, QuestionType } from '@beatcode/shared';
 import { LADDER, MAX_TIER } from './ladder';
-import { codeTokens } from './answerMatching';
+import { codeTokens, hasSignificantIndentation } from './answerMatching';
 import tier1 from './bank/tier1.json';
 import tier2 from './bank/tier2.json';
 import tier3 from './bank/tier3.json';
@@ -129,9 +129,10 @@ export function validateQuestion(obj: unknown): ValidationResult {
     if (options) errors.push('rewrite_code cannot have options');
     if (answers && code) {
       const ci = typeof q.concept === 'string' && q.concept.startsWith('sql');
-      const buggy = codeTokens(code, ci).join(' ');
+      const ind = hasSignificantIndentation({ concept: String(q.concept), code });
+      const buggy = codeTokens(code, ci, ind).join(' ');
       for (const a of answers) {
-        const t = codeTokens(a, ci).join(' ');
+        const t = codeTokens(a, ci, ind).join(' ');
         if (t === '') errors.push('rewrite_code accepted answer has no code');
         if (t === buggy) errors.push('rewrite_code accepted answer is identical to the buggy code');
       }

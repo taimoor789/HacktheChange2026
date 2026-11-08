@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Question } from '@beatcode/shared';
 import { isCorrect } from '../answerMatching';
-import { checkAnswer, editDistance, suggestAnswer } from '../suggestion';
+import {
+  checkAnswer,
+  editDistance,
+  MAX_SUGGESTIONS_PER_QUESTION,
+  suggestAnswer,
+} from '../suggestion';
 import { loadBank } from '../schema';
 
 const make = (over: Partial<Question>): Question => ({
@@ -141,5 +146,25 @@ describe('suggestions over the real bank', () => {
         expect(suggestAnswer(question, junk), `${question.id} ${junk}`).toBeNull();
       }
     }
+  });
+});
+
+describe('hint cap (agreed with Owner A: 1 hint per player per question)', () => {
+  const q = make({});
+
+  it('the cap is 1', () => {
+    expect(MAX_SUGGESTIONS_PER_QUESTION).toBe(1);
+  });
+  it('gives a hint while hintsUsed is below the cap', () => {
+    expect(checkAnswer(q, 'strig')).toEqual({ status: 'suggest', suggestion: 'string' });
+    expect(checkAnswer(q, 'strig', 0)).toEqual({ status: 'suggest', suggestion: 'string' });
+  });
+  it('treats a near-miss as a plain wrong answer once the cap is reached', () => {
+    expect(checkAnswer(q, 'strig', 1)).toEqual({ status: 'wrong' });
+    expect(checkAnswer(q, 'strig', 2)).toEqual({ status: 'wrong' });
+  });
+  it('a correct answer is still correct after the cap, and wrong stays wrong', () => {
+    expect(checkAnswer(q, 'string', 1)).toEqual({ status: 'correct' });
+    expect(checkAnswer(q, 'banana', 0)).toEqual({ status: 'wrong' });
   });
 });
