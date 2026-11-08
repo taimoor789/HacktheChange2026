@@ -2,13 +2,13 @@
  * Square popups for the play options. The page behind is greyed out
  * and blocked until the popup is closed (button, Esc, or clicking outside).
  *
- * Quick Match joins the server queue and opens the game on match:found.
- * Join Friend and Create Lobby have no server support yet: Create Lobby is hidden and
- * Join Friend only shows in dev builds, for the test codes (see select.ts).
+ * Quick Match joins the server queue, Create Lobby asks the server for a code and waits,
+ * Join Friend joins a lobby by code. Each opens the game on match:found.
  */
 
+import type { LobbyClosedReason, LobbyErrorReason } from '@beatcode/shared';
 import type { MockScenario } from './mock/mockServer';
-import { joinQueue } from './net/session';
+import { findMatch, type Finder } from './net/session';
 import { navigate } from './router';
 import { getPlayer } from './state';
 
@@ -24,7 +24,22 @@ export const TEST_CODES: Record<string, MockScenario> = {
   TEST03: 'forfeit', // the opponent leaves after round 2
 };
 
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** Lobby codes are 5 characters (server: LOBBY_ALPHABET). Test codes are 6, so they never clash. */
+const LOBBY_CODE_LENGTH = 5;
+
+const LOBBY_ERROR: Record<LobbyErrorReason, string> = {
+  not_found: 'NO LOBBY WITH THAT CODE',
+  full: 'THAT LOBBY IS FULL',
+  expired: 'THAT LOBBY HAS EXPIRED',
+  busy: 'ALREADY IN A MATCH OR LOBBY',
+  rate_limited: 'TOO MANY TRIES. WAIT A MINUTE',
+  own_lobby: 'THAT IS YOUR OWN LOBBY',
+};
+
+const LOBBY_CLOSED: Record<LobbyClosedReason, string> = {
+  expired: 'LOBBY EXPIRED. CLOSE AND TRY AGAIN',
+  host_left: 'LOBBY CLOSED',
+};
 
 function smallBtn(label: string, attrs = '') {
   return `<button class="btn-slot btn-slot--small" type="button" ${attrs}><span class="btn-slot__label">${label}</span></button>`;
@@ -58,18 +73,15 @@ const TEMPLATES: Record<PopupKind, () => string> = {
       </div>
     </form>`,
 
-  create: () => {
-    const code = Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
-    return `
+  create: () => `
     <p class="popup__title">CREATE LOBBY</p>
     <p class="popup__hint">SHARE THIS CODE</p>
-    <p class="popup__code">${code}</p>
-    <p class="popup__msg">WAITING FOR FRIEND<span class="dots"></span></p>
+    <p class="popup__code" aria-live="polite">-----</p>
+    <p class="popup__msg" aria-live="polite">CREATING LOBBY<span class="dots"></span></p>
     <div class="popup__buttons">
       ${smallBtn('CLOSE', 'data-close')}
-      ${smallBtn('COPY', 'data-copy')}
-    </div>`;
-  },
+      ${smallBtn('COPY', 'data-copy disabled')}
+    </div>`,
 };
 
 /** Open a popup over the whole screen. Returns a function that closes it. */
@@ -91,13 +103,13 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
 
   let timer = 0;
   let closed = false;
-  let leaveQueue: (() => void) | null = null;
+  let finder: Finder | null = null;
 
   function close() {
     if (closed) return;
     closed = true;
     clearInterval(timer);
-    leaveQueue?.();
+    finder?.cancel(); // no-op once a match was found
     window.removeEventListener('keydown', onKey);
     root.remove();
     background.forEach((c) => {
@@ -122,10 +134,12 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
       const s = Math.floor((Date.now() - start) / 1000);
       t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }, 250);
-    leaveQueue = joinQueue(getPlayer(), () => {
-      clearInterval(timer);
-      t.textContent = 'FOUND!';
-      navigate('/game');
+    finder = findMatch(getPlayer(), { kind: 'queue' }, {
+      onFound() {
+        clearInterval(timer);
+        t.textContent = 'FOUND!';
+        navigate('/game');
+      },
     });
   }
 
@@ -138,23 +152,57 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
     });
     root.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
-      const scenario = import.meta.env.DEV ? TEST_CODES[input.value] : undefined;
+      const code = input.value;
+      const scenario = import.meta.env.DEV ? TEST_CODES[code] : undefined;
       if (scenario) {
-        if (leaveQueue) return;
+        finder?.cancel();
         msg.textContent = 'TEST MATCH...';
-        leaveQueue = joinQueue(getPlayer(), () => navigate('/game'), scenario);
+        finder = findMatch(getPlayer(), { kind: 'mock', scenario }, { onFound: () => navigate('/game') });
         return;
       }
-      // TODO(OWNER A): no lobby codes on the server yet.
-      msg.textContent = input.value.length < 6 ? 'CODE IS 6 CHARACTERS' : 'LOBBIES ARE NOT READY YET';
+      if (code.length !== LOBBY_CODE_LENGTH) {
+        msg.textContent = `CODE IS ${LOBBY_CODE_LENGTH} CHARACTERS`;
+        return;
+      }
+      msg.textContent = 'JOINING...';
+      finder ??= findMatch(getPlayer(), { kind: 'join' }, {
+        onFound: () => {
+          msg.textContent = 'FOUND!';
+          navigate('/game');
+        },
+        onLobbyError: (reason) => (msg.textContent = LOBBY_ERROR[reason]),
+      });
+      finder.join(code);
     });
   }
 
   if (kind === 'create') {
-    const code = root.querySelector('.popup__code')!.textContent!;
-    const label = root.querySelector<HTMLElement>('[data-copy] .btn-slot__label')!;
-    root.querySelector('[data-copy]')!.addEventListener('click', () => {
-      void navigator.clipboard?.writeText(code).then(() => (label.textContent = 'COPIED'));
+    const codeEl = root.querySelector<HTMLElement>('.popup__code')!;
+    const msg = root.querySelector<HTMLElement>('.popup__msg')!;
+    const copy = root.querySelector<HTMLButtonElement>('[data-copy]')!;
+    const label = copy.querySelector<HTMLElement>('.btn-slot__label')!;
+    let code = '';
+    copy.addEventListener('click', () => {
+      if (code) void navigator.clipboard?.writeText(code).then(() => (label.textContent = 'COPIED'));
+    });
+    finder = findMatch(getPlayer(), { kind: 'create' }, {
+      onLobbyCreated(c) {
+        code = c;
+        codeEl.textContent = c;
+        copy.disabled = false;
+        msg.innerHTML = 'WAITING FOR FRIEND<span class="dots"></span>';
+      },
+      onLobbyClosed(reason) {
+        code = '';
+        copy.disabled = true;
+        codeEl.classList.add('is-dead');
+        msg.textContent = LOBBY_CLOSED[reason];
+      },
+      onLobbyError: (reason) => (msg.textContent = LOBBY_ERROR[reason]),
+      onFound() {
+        msg.textContent = 'FRIEND JOINED!';
+        navigate('/game');
+      },
     });
   }
 

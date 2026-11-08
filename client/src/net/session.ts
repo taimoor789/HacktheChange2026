@@ -1,10 +1,19 @@
 /**
- * The current match, shared between the select page (queue) and the game page (battle).
+ * Finding a match (queue, private lobby, or the dev mock) and the current match itself,
+ * shared between the select page and the game page.
  *
- * The server starts round 1 right after match:found, while the page is still changing,
- * so every server event is kept in order and replayed to the battle screen when it mounts.
+ * The game page mounts a moment after match:found, so every server event of the match is
+ * kept in order and replayed to the battle screen when it mounts.
  */
-import { CLIENT_EVENTS, SERVER_EVENTS, type MatchFoundPayload, type ServerToClientEvents } from '@beatcode/shared';
+import {
+  CLIENT_EVENTS,
+  SERVER_EVENTS,
+  type LobbyClosedReason,
+  type LobbyErrorReason,
+  type MatchFoundPayload,
+  type ServerToClientEvents,
+} from '@beatcode/shared';
+import { CHARACTERS } from '../characters';
 import type { MockScenario } from '../mock/mockServer';
 import { openSocket, type GameSocket } from './socket';
 
@@ -21,68 +30,118 @@ export interface MatchSession {
   leave(): void;
 }
 
+export type MatchRequest =
+  | { kind: 'queue' }
+  | { kind: 'create' }
+  | { kind: 'join' }
+  | { kind: 'mock'; scenario: MockScenario };
+
+export interface FindHooks {
+  onFound(s: MatchSession): void;
+  onLobbyCreated?(code: string): void;
+  onLobbyClosed?(reason: LobbyClosedReason): void;
+  onLobbyError?(reason: LobbyErrorReason): void;
+}
+
+export interface Finder {
+  /** Join a lobby by code (kind 'join'). Retries reuse the same connection. */
+  join(code: string): void;
+  /** Stop looking (leaves the queue or closes the lobby). Does nothing once a match was found. */
+  cancel(): void;
+}
+
 let current: MatchSession | null = null;
 
 export function currentMatch() {
   return current;
 }
 
-/**
- * Join the queue. `onFound` runs once on match:found. The returned function leaves the
- * queue (it does nothing once a match was found; use the session's `leave` then).
- */
-export function joinQueue(
+const known = (id: string) => CHARACTERS.some((c) => c.id === id);
+
+export function findMatch(
   player: { name: string; characterId: string },
-  onFound: (s: MatchSession) => void,
-  mock?: MockScenario,
-): () => void {
+  req: MatchRequest,
+  hooks: FindHooks,
+): Finder {
   let socket: GameSocket | null = null;
   let cancelled = false;
   let matched = false;
+  let pendingCode: string | null = null;
   const log: ServerEvent[] = [];
   const listeners = new Set<(e: ServerEvent) => void>();
 
-  const push = (e: ServerEvent) => {
-    log.push(e);
-    listeners.forEach((fn) => fn(e));
-  };
+  const sendJoin = (s: GameSocket, code: string) =>
+    s.emit(CLIENT_EVENTS.LOBBY_JOIN, { code, displayName: player.name });
 
-  void openSocket(mock).then((s) => {
+  void openSocket(req.kind === 'mock' ? req.scenario : undefined).then((s) => {
     if (cancelled) return s.disconnect();
     socket = s;
-    for (const type of Object.values(SERVER_EVENTS)) {
+
+    s.on(SERVER_EVENTS.LOBBY_CREATED, (p) => hooks.onLobbyCreated?.(p.code));
+    s.on(SERVER_EVENTS.LOBBY_CLOSED, (p) => hooks.onLobbyClosed?.(p.reason));
+    s.on(SERVER_EVENTS.LOBBY_ERROR, (p) => hooks.onLobbyError?.(p.reason));
+
+    const matchEvents = [
+      SERVER_EVENTS.ROUND_START,
+      SERVER_EVENTS.ROUND_RESULT,
+      SERVER_EVENTS.ANSWER_HINT,
+      SERVER_EVENTS.ULTIMATE_READY,
+      SERVER_EVENTS.MATCH_END,
+    ] as const;
+    for (const type of matchEvents) {
       s.on(type, ((payload: never) => {
-        if (type === SERVER_EVENTS.MATCH_FOUND && !matched) {
-          matched = true;
-          const session: MatchSession = {
-            found: payload as MatchFoundPayload,
-            listen(fn) {
-              log.forEach(fn);
-              listeners.add(fn);
-              return () => listeners.delete(fn);
-            },
-            submit(round, questionId, answer) {
-              s.emit(CLIENT_EVENTS.ANSWER_SUBMIT, { matchId: session.found.matchId, round, questionId, answer });
-            },
-            leave() {
-              listeners.clear();
-              s.disconnect();
-              if (current === session) current = null;
-            },
-          };
-          current = session;
-          onFound(session);
-          return;
-        }
-        if (matched) push({ type, payload } as ServerEvent);
+        if (!matched) return;
+        const e = { type, payload } as ServerEvent;
+        log.push(e);
+        listeners.forEach((fn) => fn(e));
       }) as never);
     }
-    s.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: player.name, characterId: player.characterId });
+
+    s.on(SERVER_EVENTS.MATCH_FOUND, (found) => {
+      if (matched) return;
+      matched = true;
+      // TODO(OWNER A): lobby events carry no characterId, so lobby matches arrive as 'player'.
+      // We know our own pick; the opponent's stays unknown until the lobby payloads include it.
+      if (!known(found.you.characterId)) found = { ...found, you: { ...found.you, characterId: player.characterId } };
+      const session: MatchSession = {
+        found,
+        listen(fn) {
+          log.forEach(fn);
+          listeners.add(fn);
+          return () => listeners.delete(fn);
+        },
+        submit(round, questionId, answer) {
+          s.emit(CLIENT_EVENTS.ANSWER_SUBMIT, { matchId: found.matchId, round, questionId, answer });
+        },
+        leave() {
+          listeners.clear();
+          s.disconnect();
+          if (current === session) current = null;
+        },
+      };
+      current = session;
+      hooks.onFound(session);
+    });
+
+    if (req.kind === 'queue' || req.kind === 'mock') {
+      s.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: player.name, characterId: player.characterId });
+    } else if (req.kind === 'create') {
+      s.emit(CLIENT_EVENTS.LOBBY_CREATE, { displayName: player.name });
+    } else if (pendingCode) {
+      sendJoin(s, pendingCode);
+    }
   });
 
-  return () => {
-    if (matched) return;
-    cancelled = true;
-    socket?.disconnect();
+  return {
+    join(code) {
+      if (req.kind !== 'join' || matched || cancelled) return;
+      if (socket) sendJoin(socket, code);
+      else pendingCode = code;
+    },
+    cancel() {
+      if (matched) return;
+      cancelled = true;
+      socket?.disconnect(); // the server drops us from the queue / closes our lobby
+    },
   };
 }

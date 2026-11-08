@@ -629,6 +629,8 @@ body {
   user-select: text;
 }
 .popup__msg { margin: 0; min-height: 1em; font-size: 10px; color: var(--c-green); }
+.popup__code.is-dead { opacity: 0.35; text-decoration: line-through; }
+.popup .btn-slot:disabled { opacity: 0.45; cursor: default; transform: none; }
 .popup__form { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .popup__buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
 .code-input { width: 240px; text-align: center; font-size: 22px; letter-spacing: 8px; }
