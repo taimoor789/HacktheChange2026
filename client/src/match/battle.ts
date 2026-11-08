@@ -30,6 +30,8 @@ const TYPE_LABEL: Record<QuestionType, string> = {
 };
 
 const LOW_TIME_S = 5;
+/** Phones and tablets: tap wording, no keyboard shortcuts in the hints. */
+const TOUCH = window.matchMedia('(pointer: coarse)').matches;
 const HINT_FADE_MS = 1200;
 const BANNER_MS = 2200;
 
@@ -263,7 +265,7 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
       sendBtn.addEventListener('click', () => picked && send(String(picked)));
       controls.push(sendBtn);
       codeSlot.append(list);
-      wrap.append(h('p', 'q__tip', 'CLICK THE LINE WITH THE BUG'), sendBtn);
+      wrap.append(h('p', 'q__tip', TOUCH ? 'TAP THE LINE WITH THE BUG' : 'CLICK THE LINE WITH THE BUG'), sendBtn);
       focusEl = list.querySelector('.code__line');
     } else if (q.type === 'rewrite_code') {
       const area = h('textarea', 'code-edit');
@@ -288,7 +290,8 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
       controls = [area, sendBtn];
       codeSlot.classList.add('is-edit');
       codeSlot.append(area);
-      wrap.append(h('p', 'q__tip', 'EDIT THE CODE. CTRL/CMD+ENTER SENDS. TAB = 4 SPACES'), sendBtn);
+      const tip = TOUCH ? 'EDIT THE CODE, THEN TAP SEND' : 'EDIT THE CODE. CTRL/CMD+ENTER SENDS. TAB = 4 SPACES';
+      wrap.append(h('p', 'q__tip', tip), sendBtn);
       focusEl = area;
     } else {
       wrap.append(singleLine(q.type === 'output_prediction' ? 'OUTPUT' : 'ANSWER'));
@@ -296,7 +299,9 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
       focusEl = lineInput;
     }
 
-    if (!codeSlot.childElementCount) codeSlot.append(h('p', 'code__none', 'NO CODE THIS ROUND'));
+    const noCode = !codeSlot.childElementCount;
+    if (noCode) codeSlot.append(h('p', 'code__none', 'NO CODE THIS ROUND'));
+    codeSlot.closest('.pane')?.classList.toggle('is-empty', noCode); // phones hide it (CSS)
     wrap.append(hintEl, statusEl);
     qSlot.replaceChildren(wrap);
     qSlot.scrollTop = 0;
