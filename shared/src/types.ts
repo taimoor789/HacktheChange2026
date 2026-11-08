@@ -7,7 +7,7 @@ export type QuestionType =
   | 'name_concept'
   | 'output_prediction'
   | 'spot_the_bug'
-  /** Heavy, multi-line: the player rewrites buggy code. Scored mode, not a race. */
+  /** Heavy, multi-line: the player rewrites buggy code. Race: the round ends on the first correct answer. */
   | 'rewrite_code';
 
 export interface Question {
