@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Question } from '@beatcode/shared';
-import { codeTokens, isCorrect, matchesCode } from '../answerMatching';
+import {
+  codeTokens,
+  forgivenTypos,
+  hasSignificantIndentation,
+  isCorrect,
+  matchesCode,
+} from '../answerMatching';
 import { checkAnswer, suggestAnswer } from '../suggestion';
 import { getQuestionSeconds, getTimerSeconds } from '../ladder';
 import { getNextQuestion } from '../selector';
@@ -28,17 +34,22 @@ describe('rewrite_code bank', () => {
     }
   });
 
-  it('ignores indentation, line breaks, spacing and semicolons', () => {
-    for (const q of rewrites()) {
+  it('JavaScript and SQL ignore indentation, line breaks, spacing and semicolons', () => {
+    const others = rewrites().filter((q) => !hasSignificantIndentation(q));
+    expect(others.length).toBeGreaterThanOrEqual(5);
+    for (const q of others) {
       const flat = q.acceptedAnswers[0].replace(/\s+/g, ' ');
       expect(isCorrect(q, flat), `${q.id} one line`).toBe(true);
       expect(isCorrect(q, q.acceptedAnswers[0].replace(/^[ \t]+/gm, '')), `${q.id} no indent`).toBe(
         true,
       );
-      expect(
-        isCorrect(q, '\n\n  ' + q.acceptedAnswers[0].replace(/\n/g, '\r\n') + '\n\n'),
-        `${q.id} crlf`,
-      ).toBe(true);
+    }
+  });
+
+  it('every question tolerates CRLF line endings and blank lines around the answer', () => {
+    for (const q of rewrites()) {
+      const typed = '\n\n' + q.acceptedAnswers[0].replace(/\n/g, '\r\n') + '\n\n';
+      expect(isCorrect(q, typed), `${q.id} crlf`).toBe(true);
     }
   });
 
@@ -164,8 +175,8 @@ describe('validation of rewrite_code', () => {
     expect(errorsFor({ seconds: undefined })).toMatch(/seconds >= 30/);
     expect(errorsFor({ seconds: 10 })).toMatch(/seconds >= 30/);
   });
-  it('rejects an accepted answer identical to the buggy code (spacing ignored)', () => {
-    expect(errorsFor({ acceptedAnswers: ['def f():  return 1'] })).toMatch(
+  it('rejects an accepted answer identical to the buggy code (indent width ignored)', () => {
+    expect(errorsFor({ acceptedAnswers: ['def f():\n  return 1'] })).toMatch(
       /identical to the buggy code/,
     );
   });
@@ -183,5 +194,117 @@ describe('selection', () => {
       expect(q.type).toBe('rewrite_code');
       expect(q.difficulty).toBe(5);
     }
+  });
+});
+
+describe('Python rewrite_code: indentation is significant', () => {
+  const python = () => rewrites().filter((q) => hasSignificantIndentation(q));
+  const multi = () => python().filter((q) => q.acceptedAnswers[0].includes('\n'));
+  const reindent = (code: string, unit: string) =>
+    code.replace(/^( +)/gm, (spaces) => unit.repeat(spaces.length / 4));
+
+  it('finds the Python and the non-Python questions correctly', () => {
+    expect(
+      python()
+        .map((q) => q.id)
+        .sort(),
+    ).toEqual(['t3-rw-1', 't4-rw-1', 't5-rw-1', 't5-rw-3', 't6-rw-1', 't6-rw-2'].sort());
+    for (const q of rewrites().filter((x) => !python().includes(x))) {
+      expect(q.code).not.toMatch(/^\s*def\b/m);
+    }
+  });
+
+  it('rejects the right code with the indentation removed or flattened', () => {
+    expect(multi().length).toBeGreaterThanOrEqual(5);
+    for (const q of multi()) {
+      const answer = q.acceptedAnswers[0];
+      expect(isCorrect(q, answer.replace(/^[ \t]+/gm, '')), `${q.id} no indent`).toBe(false);
+      expect(isCorrect(q, answer.replace(/\s+/g, ' ')), `${q.id} one line`).toBe(false);
+    }
+  });
+
+  it('rejects the right lines at the wrong nesting level', () => {
+    for (const q of multi()) {
+      const lines = q.acceptedAnswers[0].split('\n');
+      const last = lines.length - 1;
+      // move the last line out one level, and push the second line in one level
+      const out = [...lines.slice(0, last), lines[last].replace(/^ {4}/, '')].join('\n');
+      const into = [lines[0], '    ' + lines[1], ...lines.slice(2)].join('\n');
+      expect(isCorrect(q, out), `${q.id} last line dedented`).toBe(false);
+      expect(isCorrect(q, into), `${q.id} second line indented`).toBe(false);
+    }
+  });
+
+  it('accepts any consistent indent width: 2 spaces, 8 spaces, tabs, or a uniform extra indent', () => {
+    for (const q of multi()) {
+      const answer = q.acceptedAnswers[0];
+      expect(isCorrect(q, reindent(answer, '  ')), `${q.id} 2 spaces`).toBe(true);
+      expect(isCorrect(q, reindent(answer, '        ')), `${q.id} 8 spaces`).toBe(true);
+      expect(isCorrect(q, reindent(answer, '\t')), `${q.id} tabs`).toBe(true);
+      expect(isCorrect(q, answer.replace(/^/gm, '    ')), `${q.id} uniform extra indent`).toBe(
+        true,
+      );
+    }
+  });
+
+  it('rejects a dedent to a level that was never opened', () => {
+    const q = rewrites().find((x) => x.id === 't5-rw-1')!;
+    const lines = q.acceptedAnswers[0].split('\n');
+    const broken = [...lines.slice(0, 4), '  ' + lines[4], ...lines.slice(5)].join('\n'); // 2 spaces: between levels
+    expect(isCorrect(q, broken)).toBe(false);
+  });
+
+  it('single-line fixes work at any indentation', () => {
+    for (const q of python()) {
+      for (const a of q.acceptedAnswers.filter((x) => !x.includes('\n'))) {
+        expect(isCorrect(q, a), `${q.id} ${a}`).toBe(true);
+        expect(isCorrect(q, '        ' + a), `${q.id} indented ${a}`).toBe(true);
+      }
+    }
+  });
+
+  it('ignores a trailing comment on a line, but not other extra code', () => {
+    const q = rewrites().find((x) => x.id === 't5-rw-3')!;
+    const answer = q.acceptedAnswers[0];
+    expect(isCorrect(q, answer.replace('return 1', 'return 1  # base case'))).toBe(true);
+    expect(isCorrect(q, answer.replace('return 1', 'return 1 + 0'))).toBe(false);
+  });
+
+  it('JavaScript and SQL are not affected', () => {
+    const js = rewrites().find((x) => x.id === 't5-rw-2')!;
+    expect(isCorrect(js, js.acceptedAnswers[0].replace(/\s+/g, ' '))).toBe(true);
+    const sql = rewrites().find((x) => x.id === 't5-rw-4')!;
+    expect(isCorrect(sql, sql.acceptedAnswers[0].replace(/\s+/g, ' '))).toBe(true);
+  });
+});
+
+describe('forgivenTypos (post-match review)', () => {
+  const q = rewrites().find((x) => x.id === 't5-rw-3')!; // def power(base, exp) ...
+
+  it('reports nothing for an exact answer and null for a wrong one', () => {
+    expect(forgivenTypos(q, q.acceptedAnswers[0])).toEqual([]);
+    expect(forgivenTypos(q, q.code!)).toBeNull();
+    expect(forgivenTypos(q, '')).toBeNull();
+  });
+
+  it('reports which misspellings were forgiven, once each', () => {
+    const typed = q.acceptedAnswers[0].replace('return 1', 'retrun 1').replace(/base/g, 'bsae');
+    expect(isCorrect(q, typed)).toBe(true);
+    expect(forgivenTypos(q, typed)).toEqual([
+      { typed: 'bsae', expected: 'base' },
+      { typed: 'retrun', expected: 'return' },
+    ]);
+  });
+
+  it('stays consistent with isCorrect for every rewrite question', () => {
+    for (const r of rewrites()) {
+      for (const a of r.acceptedAnswers) expect(forgivenTypos(r, a), r.id).toEqual([]);
+      expect(forgivenTypos(r, r.code!), r.id).toBeNull();
+    }
+  });
+
+  it('is null for question types other than rewrite_code', () => {
+    const fb = loadBank().find((x) => x.type === 'fill_blank')!;
+    expect(forgivenTypos(fb, fb.acceptedAnswers[0])).toBeNull();
   });
 });
