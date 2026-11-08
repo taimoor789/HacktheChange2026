@@ -1,6 +1,8 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
 import { mountBattle } from '../match/battle';
+import { ATTACK_MS } from '../match/attacks';
 import { battleMusic } from '../match/battleAudio';
+import { cutsceneSrc, playCutscene, preloadCutscenes } from '../match/cutscene';
 import { renderEndScreen } from '../match/endScreen';
 import { currentMatch } from '../net/session';
 import { openPopup } from '../popup';
@@ -31,6 +33,8 @@ const UI_IN_AT = 3.6;
 
 /** Time the end callout (K.O. / time's up / opponent left) stays on the stage. */
 const END_SCREEN_DELAY_MS = 1800;
+
+const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 const entrySfx = new Audio('/assets/audio/game-entry.mp3');
 entrySfx.preload = 'auto';
@@ -133,25 +137,51 @@ export function createPage(): Page {
   /* ---------- the match ---------- */
   // The intro plays during the server's start delay (match:found -> round:start).
   // If round 1 arrives before the intro has cleared (slow load), show the HUD then.
-  let endTimer = 0;
   let pageShown = false;
   let roundStarted = false;
+  let destroyed = false;
+
+  /* ---------- finisher cutscene: once per match, for the winner ---------- */
+  // Knockout: starts when the KO blow's attack GIF ends (match:end arrives 3 s later, during it).
+  // Win on time (tiers_complete / max_rounds): after the TIME'S UP callout.
+  // None for a draw, a forfeit (the opponent left), a mirror match or an unknown character.
+  let cutscene: Promise<void> | null = null;
+  const charOf = (id: string) => (id === you?.id ? you.characterId : opp?.characterId ?? '');
+  function runCutscene(winnerId: string, delayMs: number) {
+    const loserId = winnerId === you?.id ? opp?.id : you?.id;
+    const src = loserId ? cutsceneSrc(charOf(winnerId), charOf(loserId)) : null;
+    if (!src || cutscene) return;
+    cutscene = wait(delayMs).then(() => {
+      if (destroyed) return;
+      closePopup?.();
+      battleMusic.stop(300); // the cutscene has its own sound
+      return playCutscene(el, src);
+    });
+  }
+  if (you && opp) preloadCutscenes(you.characterId, opp.characterId);
+
   const unmountBattle = session
     ? mountBattle(el, session, {
         onRoundStart: () => {
           roundStarted = true;
           if (pageShown) showUI();
         },
+        onKnockout: (winnerId) => {
+          if (winnerId) runCutscene(winnerId, ATTACK_MS);
+        },
         onEnd: (p) => {
-          // CUTSCENE: the KO animation for hp_zero plays here, before the end screen opens.
-          endTimer = window.setTimeout(() => {
+          if (p.winnerId && (p.reason === 'tiers_complete' || p.reason === 'max_rounds')) {
+            runCutscene(p.winnerId, END_SCREEN_DELAY_MS);
+          }
+          void (cutscene ?? wait(END_SCREEN_DELAY_MS)).then(() => {
+            if (destroyed) return;
             battleMusic.stop(800);
             closePopup?.();
             const screen = renderEndScreen(p, session.found.you.id, navigate);
             el.append(screen.el);
             el.classList.add('is-over');
             screen.focus();
-          }, END_SCREEN_DELAY_MS);
+          });
         },
       })
     : null;
@@ -194,8 +224,8 @@ export function createPage(): Page {
       fallback = window.setTimeout(showUI, (UI_IN_AT + 1) * 1000); // if timeupdate stalls
     },
     destroy() {
+      destroyed = true;
       clearTimeout(fallback);
-      clearTimeout(endTimer);
       closePopup?.();
       unmountBattle?.();
       session?.leave(); // leaving the game page closes the connection (a forfeit mid-match)

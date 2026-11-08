@@ -3,8 +3,8 @@
  * and keeps the HUD (health, combo, ultimate) in sync with the server's events.
  *
  * Everything here only renders what the server sends. The server decides correctness,
- * damage and the round's end. The attacker's attack GIF plays on a hit (match/attacks.ts);
- * full cutscenes go where the CUTSCENE note is below.
+ * damage and the round's end. The attacker's attack GIF and sound play on a hit
+ * (match/attacks.ts, match/battleAudio.ts); the finisher cutscene is run by the game page.
  */
 import {
   ULTIMATE_CHARGE_NEEDED,
@@ -44,6 +44,8 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 export interface BattleOptions {
   /** Every round:start (controls are only enabled from here). */
   onRoundStart?: (round: number) => void;
+  /** A round:result left a player at 0 HP. `winnerId` is null when both fell (a draw). */
+  onKnockout?: (winnerId: string | null) => void;
   onEnd: (p: MatchEndPayload) => void;
 }
 
@@ -335,11 +337,8 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
   }
 
   function onResult(p: RoundResultPayload) {
-    // CUTSCENE: full attack / hit / ultimate cutscenes go here, before the bars change.
     // p.damage lists each hit: { attacker (null = mutual miss), to, amount, attackSize }.
-    // attackSize is 'light' | 'medium' | 'heavy' | 'ultimate'.
-    // For now the attacker plays their attack GIF and the bars drop when the blow lands.
-    // Not awaited: the server starts the next round straight away.
+    // The attacker plays their attack GIF and sound; the bars drop when the blow lands.
     const hits = p.damage.filter((d) => d.attacker !== null && fighters[d.attacker]);
     const updateHud = () => {
       for (const player of Object.values(p.players)) renderPlayer(player);
@@ -354,6 +353,10 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     }
     if (hits.length && !reduceMotion) hudTimer = window.setTimeout(updateHud, ATTACK_HIT_MS);
     else updateHud();
+
+    // Knockout: match:end follows after the server's end delay; the page plays the finisher now.
+    const standing = Object.values(p.players).filter((pl) => pl.hp > 0);
+    if (standing.length < Object.keys(p.players).length) opts.onKnockout?.(standing[0]?.id ?? null);
 
     const lines: string[] = [];
     if (p.damage.length === 0) lines.push('NO DAMAGE');
