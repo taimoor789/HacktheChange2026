@@ -33,9 +33,8 @@ Round result:
 - The server clock decides. An answer received at or before `deadline` counts. A later one is missing.
 - A correct answer beats a wrong or missing one. If both are correct, the faster one hits (smaller `answerMs`).
 - An exact `answerMs` tie: nobody hits, no damage, and both streaks increment.
-- Race types (`fill_blank`, `name_concept`, `output_prediction`, `rewrite_code`) end on the first correct answer, or as soon as both players have answered wrong. The slower player's streak freezes: no reset and no increment. A wrong answer or a true timeout still resets it.
-- `rewrite_code` is a race. `isCorrect` returns a plain boolean. A typo suggestion from `checkAnswer` is a hint only and is not a correct answer.
-- `spot_the_bug` waits until both have answered or the deadline hits, then the same correctness-then-speed rule applies.
+- Every type is a race (`RACE_MODE_TYPES`: `fill_blank`, `name_concept`, `output_prediction`, `spot_the_bug`, `rewrite_code`). The first correct answer ends the round and hits. A wrong answer locks that player out while the other keeps the rest of the time. The round also ends as soon as both players have answered wrong. The slower player's streak freezes: no reset and no increment. A wrong answer or a true timeout still resets it.
+- `isCorrect` returns a plain boolean. A typo suggestion from `checkAnswer` is a hint only and is not a correct answer.
 - Round length is `getQuestionSeconds(question)`: the tier timer, raised to the question's own `seconds` when that is longer, and never more than 60 seconds. `round:start` arrives after the pacing delay. The client counts down from that event's `deadline` and `serverNow`.
 - One counted submission per player per round. A hint does not count as that submission.
 - Hit damage is the tier base from `DAMAGE_BY_TIER`, plus a linear speed bonus up to `SPEED_BONUS_MAX` (50% at the instant the round starts, 0 at the deadline). Round to the nearest integer. Only the round winner deals this damage.
@@ -56,7 +55,7 @@ Difficulty:
 
 Ultimate:
 
-- The streak lives in `combo`. It increments on a correct answer even when the opponent was faster, and resets to 0 on a wrong or missing answer. A race round that closes early freezes the slower player's `combo`.
+- The streak lives in `combo`. It increments on a correct answer and resets to 0 on a wrong or missing answer. A round that closes on the opponent's correct answer freezes your `combo` (every type is a race).
 - It fires when `combo >= ULT_STREAK` (3) and that player wins the round. Damage is the hit damage times `ULTIMATE_DAMAGE_MULTIPLIER` (2.5), then `combo` resets to 0.
 - Emit `ultimate:ready` immediately before `round:result`. The player snapshot in `round:result` is the after-state, so the charge bar is already empty there.
 - `ultimateCharge` stays on a 0 to `ULTIMATE_CHARGE_NEEDED` scale and is filled from the streak for the UI: `round((combo / ULT_STREAK) * ULTIMATE_CHARGE_NEEDED)`.
@@ -69,7 +68,7 @@ The engine owns tier progression. Do not build on `QUESTIONS_PER_TIER` or `compl
 
 ## Socket behavior
 
-`shared/src/` is the source of truth for events and payloads. Built in Step 5. After a wrong counted answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. Race rounds close on the first correct answer. Any round closes once both players have a counted answer, so two wrong answers end it at once. `spot_the_bug` waits for both counted answers or the deadline. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1. `answer:hint` goes only to the player who typed the near-miss. Option questions, `spot_the_bug`, and `rewrite_code` never hint. Owner B: show "Did you mean: <suggestion>", put it in the input, and submit it on Enter.
+`shared/src/` is the source of truth for events and payloads. Built in Step 5. After a wrong counted answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. Every round is a race: it closes on the first correct answer, or once both players have a counted answer, so two wrong answers end it at once. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1. `answer:hint` goes only to the player who typed the near-miss. Option questions, `spot_the_bug`, and `rewrite_code` never hint. Owner B: show "Did you mean: <suggestion>", put it in the input, and submit it on Enter.
 
 Step 7. `queue:join` pairs the next two humans. A second join from the same socket, or a join during a match, is ignored. Disconnecting while waiting leaves the queue. The server ignores a submission that is not a string, is longer than 2000 characters, arrives after `deadline`, names another match, round, or question, comes from a socket that is not in the match, or is a second counted submission in that round. A disconnect during a match emits `match:end` with `reason: "forfeit"` and `winnerId` set to the remaining player. A forfeit cancels any pending gap and ends immediately.
 
@@ -95,5 +94,6 @@ Leave these constants in `shared/` and do not implement them: comeback (`COMEBAC
 | `forfeit` on `MatchEndReason` | Applied. Pending approval from B and C |
 | Round pacing and lobby events | Applied. Pending approval from B and C |
 | Optional `characterId` on `lobby:create` and `lobby:join` | Applied by B. Pending approval from A and C |
+| `spot_the_bug` in `RACE_MODE_TYPES` (every type is a race) | Applied by B. Pending approval from A and C |
 
 `DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, `max_rounds`, or `forfeit`.

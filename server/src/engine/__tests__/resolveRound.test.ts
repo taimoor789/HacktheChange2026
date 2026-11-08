@@ -67,7 +67,8 @@ describe('resolveRound', () => {
     ]);
     expect(result.damage[0]?.amount).toBe(12);
     expect(result.players[0].combo).toBe(1);
-    expect(result.players[1].combo).toBe(1);
+    // every type is a race: the slower correct answer's streak freezes
+    expect(result.players[1].combo).toBe(0);
     expect(result.players[1].hp).toBe(88);
   });
 
@@ -168,7 +169,7 @@ describe('resolveRound', () => {
     expect(result.players[1]).toMatchObject({ hp: 70, combo: 0 });
   });
 
-  it('keeps a streak of 3 after losing a speed contest, then fires on the next win', () => {
+  it('keeps a frozen streak after losing a race, then fires on the next win', () => {
     const lost = resolveRound(
       round({
         players: [player('a', 100, 2, 'correct', 3000), player('b', 100, 0, 'correct', 1000)],
@@ -177,8 +178,8 @@ describe('resolveRound', () => {
 
     expect(lost.hitterId).toBe('b');
     expect(lost.ultimateFired).toBe(false);
-    expect(lost.players[0].combo).toBe(3);
-    expect(lost.players[0].ultimateCharge).toBe(100);
+    expect(lost.players[0].combo).toBe(2);
+    expect(lost.players[0].ultimateCharge).toBe(chargeFromStreak(2));
     expect(lost.players[1].combo).toBe(1);
 
     const won = resolveRound(

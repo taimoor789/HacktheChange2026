@@ -34,11 +34,16 @@ export const TIMER_SECONDS_BY_TIER = [25, 22, 20, 18, 15, 12] as const;
 /** Lockout after a wrong answer in race mode. TUNABLE. */
 export const WRONG_ANSWER_LOCKOUT_MS = 2000;
 
-/** Quick types use race mode (first correct wins). Others use scored mode. */
+/**
+ * Every type is a race: the first correct answer ends the round and hits. A wrong answer locks
+ * that player out while the other keeps the rest of the time. A type left out of this list would
+ * wait for both answers (or the deadline) and then compare correctness and speed.
+ */
 export const RACE_MODE_TYPES: readonly QuestionType[] = [
   'fill_blank',
   'name_concept',
   'output_prediction',
+  'spot_the_bug',
   'rewrite_code',
 ];
 

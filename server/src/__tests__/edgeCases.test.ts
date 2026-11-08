@@ -397,14 +397,16 @@ describe('socket edge cases', () => {
     ioServer?.close();
     await new Promise<void>((resolve) => httpServer?.close(() => resolve()));
 
-    const scored = questionOf('spot_the_bug');
-    const scoredAnswer = correctAnswerFor(scored.id)!;
+    // Every type is a race, so the first correct answer always hits. The players take turns
+    // answering so the damage is shared and nobody is knocked out before the ladder finishes.
+    const ladderQuestion = questionOf('spot_the_bug');
+    const ladderAnswer = correctAnswerFor(ladderQuestion.id)!;
     let now = 3_000;
     const ladderTimers = jobsOf();
     const ladderUrl = await boot({
       clock: { now: () => now },
       schedule: ladderTimers.schedule,
-      chooseQuestion: () => scored,
+      chooseQuestion: () => ladderQuestion,
     });
     const ladA = client(ladderUrl);
     const ladB = client(ladderUrl);
@@ -423,8 +425,7 @@ describe('socket edge cases', () => {
       expect(ladderTimers.flush()).toBe(true);
       const start = await ladderStarts.next();
       now = start.deadline;
-      submit(ladA, start, scoredAnswer);
-      submit(ladB, start, scoredAnswer);
+      submit(round % 2 === 0 ? ladA : ladB, start, ladderAnswer);
       await ladderResults.next();
     }
     expect(ladderTimers.flush()).toBe(true);
