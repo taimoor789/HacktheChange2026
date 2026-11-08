@@ -103,7 +103,10 @@ describe('socket edge cases', () => {
   async function boot(options: GameServerOptions): Promise<string> {
     httpServer = http.createServer();
     ioServer = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
-    attachGame(ioServer, options);
+    attachGame(ioServer, {
+      pacing: { matchStartMs: 0, roundGapMs: 0, roundGapUltimateMs: 0, matchEndMs: 0 },
+      ...options,
+    });
     await new Promise<void>((resolve) => httpServer?.listen(0, '127.0.0.1', () => resolve()));
     return `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
   }
@@ -379,9 +382,12 @@ describe('socket edge cases', () => {
       expect(koTimers.flush()).toBe(true);
       const start = await koStarts.next();
       submit(koA, start, right);
-      await koResults.next();
-      ko = koEnds.tryNext() ?? null;
-      if (!ko && koTimers.pending().length === 0) ko = await koEnds.next();
+      const result = await koResults.next();
+      const knockedOut = Object.values(result.players).some((player) => player.hp <= 0);
+      if (knockedOut) {
+        expect(koTimers.flush()).toBe(true);
+        ko = koEnds.tryNext() ?? (await koEnds.next());
+      }
     }
     expect(ko?.reason).toBe('hp_zero');
     expect(koTimers.pending()).toEqual([]);
@@ -421,6 +427,7 @@ describe('socket edge cases', () => {
       submit(ladB, start, scoredAnswer);
       await ladderResults.next();
     }
+    expect(ladderTimers.flush()).toBe(true);
     const ladderEnd = await ladderEnds.next();
     expect(ladderEnd.reason).toBe('tiers_complete');
     expect(ladderTimers.pending()).toEqual([]);

@@ -26,6 +26,9 @@ Client to server:
 - `queue:join` `{ name, characterId, linkedinUrl?, vsBot? }`
 - `answer:submit` `{ matchId, round, questionId, answer }`
 - `connect:request` `{ matchId, targetPlayerId }`
+- `lobby:create` `{ displayName? }`
+- `lobby:join` `{ code, displayName? }`
+- `lobby:leave` (no payload)
 
 Server to client:
 - `match:found` `{ matchId, you, opponent }`
@@ -34,6 +37,13 @@ Server to client:
 - `answer:hint` `{ matchId, round, suggestion }` (sent only to the player who typed the near-miss)
 - `ultimate:ready` `{ matchId, playerId }`
 - `match:end` `{ matchId, winnerId, players, review: ReviewItem[], reason }`
+- `lobby:created` `{ code }`
+- `lobby:closed` `{ reason }` where `reason` is `expired` or `host_left`
+- `lobby:error` `{ reason }` where `reason` is `not_found`, `full`, `expired`, `busy`, `rate_limited`, or `own_lobby`
+
+`round:start` is not sent with `match:found`. The first one waits `MATCH_START_DELAY_MS` (4000). Later ones wait `ROUND_GAP_MS` (2500) after `round:result`, or `ROUND_GAP_ULTIMATE_MS` (5000) when that round fired an ultimate. The round clock starts when `round:start` is sent. The question is not sent before that. Owner B shows the intro on `match:found` and enables controls when `round:start` arrives. Do not show the question or enable controls early. `match:end` for `hp_zero`, `tiers_complete`, or `max_rounds` waits `MATCH_END_DELAY_MS` (3000) after the final `round:result`. A `forfeit` is sent immediately and cancels a pending gap. `round:start`, `round:result`, and `match:end` payloads are unchanged.
+
+A lobby code is 5 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and lasts `LOBBY_TTL_MS` (600000). `lobby:join` trims and uppercases the code. The match starts only when that lobby is open and the host is a different connected socket. The code is then gone. A socket is in only one of the queue, a lobby, or a match. Creating or joining while busy is `busy`. Joining your own lobby is `own_lobby`. Five failed joins per minute, then `rate_limited`. There is no lobby list. Names are trimmed, control characters stripped, cut at 24 characters, or `Player`. Starting a lobby match reuses `match:found`.
 
 `DamageEvent` is `{ to, amount, attackSize, attacker }`. `attackSize` is `light`, `medium`, `heavy`, or `ultimate`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two elements. A tie, or a safety-cap double miss, is `damage: []`.
 
@@ -53,6 +63,6 @@ Both players always get the **same question** each round (one shared ladder per 
 
 ## Tunable constants (`shared/src/constants.ts`)
 
-The engine uses `STARTING_HP`, `DAMAGE_BY_TIER`, `ULTIMATE_CHARGE_NEEDED`, `ULTIMATE_DAMAGE_MULTIPLIER`, `TIMER_SECONDS_BY_TIER`, `RACE_MODE_TYPES`, `ROUNDS_PER_TIER`, `MAX_ROUNDS`, `SPEED_BONUS_MAX`, `MISS_DAMAGE`, and `ULT_STREAK`. `ultimateCharge` is filled from the streak: `round((combo / ULT_STREAK) * ULTIMATE_CHARGE_NEEDED)`.
+The engine uses `STARTING_HP`, `DAMAGE_BY_TIER`, `ULTIMATE_CHARGE_NEEDED`, `ULTIMATE_DAMAGE_MULTIPLIER`, `TIMER_SECONDS_BY_TIER`, `RACE_MODE_TYPES`, `ROUNDS_PER_TIER`, `MAX_ROUNDS`, `SPEED_BONUS_MAX`, `MISS_DAMAGE`, `ULT_STREAK`, `MATCH_START_DELAY_MS`, `ROUND_GAP_MS`, `ROUND_GAP_ULTIMATE_MS`, `MATCH_END_DELAY_MS`, and `LOBBY_TTL_MS`. `ultimateCharge` is filled from the streak: `round((combo / ULT_STREAK) * ULTIMATE_CHARGE_NEEDED)`.
 
 Not implemented. Leave them alone: `COMBO_MULTIPLIERS`, `ULTIMATE_CHARGE_BY_TIER`, `COMEBACK_*`, `WRONG_ANSWER_LOCKOUT_MS`, and `QUESTIONS_PER_TIER` (Owner C's module only).

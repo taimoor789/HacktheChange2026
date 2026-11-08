@@ -69,3 +69,18 @@ export const ULT_STREAK = 3;
  * (tier 1, 2 questions, tier 2, 2 questions ... tier 6). Counted per tier, not by round number. TUNABLE.
  */
 export const QUESTIONS_PER_TIER = 2;
+
+/** Wait after match:found before the first round:start. The question is not sent early. */
+export const MATCH_START_DELAY_MS = 4000;
+
+/** Wait after round:result before the next round:start. */
+export const ROUND_GAP_MS = 2500;
+
+/** Wait after round:result when that round fired an ultimate. */
+export const ROUND_GAP_ULTIMATE_MS = 5000;
+
+/** Wait after the final round:result before match:end. A forfeit is not delayed. */
+export const MATCH_END_DELAY_MS = 3000;
+
+/** How long a private lobby stays open. */
+export const LOBBY_TTL_MS = 600000;
