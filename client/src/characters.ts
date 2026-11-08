@@ -5,8 +5,8 @@
  * /assets/characters/<id>/:
  *   idle-left.gif  idle-right.gif   animated idle, facing left / right
  *   still-left.png still-right.png  single frame (portraits)
- *   attack-right.gif                one attack, 720x576 (the idle frame plus 120px each side);
- *                                   mirrored in CSS for the left-facing player (see match/attacks.ts)
+ *   attack-left.gif attack-right.gif one attack, 720x576 (the idle frame plus 120px each side);
+ *                                    the left file is the right one mirrored (see match/attacks.ts)
  * All art shares one 480x576 frame (see ART_FRAME). Characters without art
  * use a generated pixel placeholder from the grid below.
  */
@@ -15,7 +15,7 @@ export interface Character {
   name: string;
   /** Has drawn art in /assets/characters/<id>/. */
   art?: boolean;
-  /** Has attack-right.gif in /assets/characters/<id>/. */
+  /** Has attack-left.gif and attack-right.gif in /assets/characters/<id>/. */
   attack?: boolean;
   palette: { hair: string; skin: string; shirt: string; pants: string; boots: string };
   /** Optional replacement for the top (hair) rows of the placeholder grid. */

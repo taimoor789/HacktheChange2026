@@ -15,7 +15,7 @@ import {
   type RoundResultPayload,
   type RoundStartPayload,
 } from '@beatcode/shared';
-import { findCharacter } from '../characters';
+import { findCharacter, type Character, type Facing } from '../characters';
 import type { MatchSession, ServerEvent } from '../net/session';
 import { ATTACK_HIT_MS, playAttack, preloadAttack } from './attacks';
 import { endCallout } from './endScreen';
@@ -78,11 +78,20 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
 
   /* ---------- attacks ---------- */
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const fighters: Record<string, { el: HTMLElement; char: ReturnType<typeof findCharacter> }> = {
-    [youId]: { el: root.querySelector<HTMLElement>('.fighter--p1')!, char: findCharacter(session.found.you.characterId) },
-    [oppId]: { el: root.querySelector<HTMLElement>('.fighter--p2')!, char: findCharacter(session.found.opponent.characterId) },
+  // You are always on the left facing right; the opponent is on the right facing left.
+  const fighters: Record<string, { el: HTMLElement; char: Character; facing: Facing }> = {
+    [youId]: {
+      el: root.querySelector<HTMLElement>('.fighter--p1')!,
+      char: findCharacter(session.found.you.characterId),
+      facing: 'right',
+    },
+    [oppId]: {
+      el: root.querySelector<HTMLElement>('.fighter--p2')!,
+      char: findCharacter(session.found.opponent.characterId),
+      facing: 'left',
+    },
   };
-  Object.values(fighters).forEach((f) => void preloadAttack(f.char));
+  Object.values(fighters).forEach((f) => void preloadAttack(f.char, f.facing));
   let hudTimer = 0;
 
   let bannerTimer = 0;
@@ -330,7 +339,7 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     if (hits.length && !reduceMotion) {
       for (const d of hits) {
         const f = fighters[d.attacker!];
-        void playAttack(f.el, f.char, { ultimate: d.attackSize === 'ultimate' });
+        void playAttack(f.el, f.char, f.facing, { ultimate: d.attackSize === 'ultimate' });
       }
       hudTimer = window.setTimeout(updateHud, ATTACK_HIT_MS);
     } else {
