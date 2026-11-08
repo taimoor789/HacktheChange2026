@@ -41,6 +41,8 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 }
 
 export interface BattleOptions {
+  /** Every round:start (controls are only enabled from here). */
+  onRoundStart?: (round: number) => void;
   onEnd: (p: MatchEndPayload) => void;
 }
 
@@ -75,6 +77,7 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
   }
   renderPlayer(session.found.you);
   renderPlayer(session.found.opponent);
+  qSlot.replaceChildren(h('p', 'q__status', 'GET READY...'));
 
   /* ---------- attacks ---------- */
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -306,6 +309,8 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     stopClock();
     tick = window.setInterval(renderClock, 200);
     renderClock();
+    if (roundOpen) showBanner([`ROUND ${p.round}`]);
+    opts.onRoundStart?.(p.round);
   }
 
   function onHint(p: { round: number; suggestion: string }) {

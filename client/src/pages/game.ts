@@ -17,7 +17,8 @@ import { html, videoReady, withTimeout } from '../util';
  *
  * Sequence: the stage's ENTRY video plays once (green code -> environment)
  * with the entry sound; the UI slides in once the code has cleared (~3.6s);
- * when the entry ends we hand off to the stage's LOOP.
+ * when the entry ends we hand off to the stage's LOOP. The intro fits in the
+ * server's MATCH_START_DELAY_MS, so round 1 arrives as the HUD slides in.
  */
 
 const STAGES = ['grassy-mountains', 'pink-forest', 'river-waterfall', 'fire-forest'] as const;
@@ -121,9 +122,17 @@ export function createPage(): Page {
   });
 
   /* ---------- the match ---------- */
+  // The intro plays during the server's start delay (match:found -> round:start).
+  // If round 1 arrives before the intro has cleared (slow load), show the HUD then.
   let endTimer = 0;
+  let pageShown = false;
+  let roundStarted = false;
   const unmountBattle = session
     ? mountBattle(el, session, {
+        onRoundStart: () => {
+          roundStarted = true;
+          if (pageShown) showUI();
+        },
         onEnd: (p) => {
           // CUTSCENE: the KO animation for hp_zero plays here, before the end screen opens.
           endTimer = window.setTimeout(() => {
@@ -161,8 +170,8 @@ export function createPage(): Page {
     onShow() {
       if (started) return;
       started = true;
-      // The server starts round 1 right after match:found, so a live match shows the HUD at once.
-      if (session) showUI();
+      pageShown = true;
+      if (roundStarted) showUI();
       if (reduce) {
         entry.hidden = true;
         void loop.play().catch(() => {});

@@ -8,9 +8,13 @@
 import {
   CLIENT_EVENTS,
   DAMAGE_BY_TIER,
+  MATCH_END_DELAY_MS,
+  MATCH_START_DELAY_MS,
   MAX_ROUNDS,
   MISS_DAMAGE,
   RACE_MODE_TYPES,
+  ROUND_GAP_MS,
+  ROUND_GAP_ULTIMATE_MS,
   SERVER_EVENTS,
   SPEED_BONUS_MAX,
   STARTING_HP,
@@ -35,8 +39,7 @@ import type { GameSocket } from '../net/socket';
 
 export type MockScenario = 'full' | 'knockout' | 'forfeit';
 
-/** The real server starts the next round right after round:result. Kept the same here. */
-const ROUND_GAP_MS = 0;
+// Pacing matches the real server (shared constants): start delay, round gaps, end delay.
 const FOUND_DELAY_MS = 1200;
 const KNOCKOUT_START_HP = 30;
 const FORFEIT_AFTER_ROUND = 2;
@@ -264,14 +267,14 @@ export function createMockSocket(scenario: MockScenario): GameSocket {
     };
     later(() => {
       fire(SERVER_EVENTS.MATCH_FOUND, { matchId, you: { ...players[YOU] }, opponent: { ...players[OPP] } });
-      nextRound();
+      later(nextRound, MATCH_START_DELAY_MS);
     }, FOUND_DELAY_MS);
   }
 
   function nextRound() {
     index++;
     const step = SCRIPT[index];
-    if (!step) return end('tiers_complete');
+    if (!step) return end('tiers_complete'); // already waited MATCH_END_DELAY_MS (see resolve)
     if (index + 1 > MAX_ROUNDS) return end('max_rounds');
     const q = step.q;
     tier = q.difficulty;
@@ -394,12 +397,16 @@ export function createMockSocket(scenario: MockScenario): GameSocket {
       nextTier,
     });
 
-    if (players[YOU].hp <= 0 || players[OPP].hp <= 0) return end('hp_zero');
-    if (scenario === 'forfeit' && round === FORFEIT_AFTER_ROUND) {
-      later(() => end('forfeit'), 1500); // the opponent disconnects between rounds
+    if (players[YOU].hp <= 0 || players[OPP].hp <= 0) {
+      later(() => end('hp_zero'), MATCH_END_DELAY_MS);
       return;
     }
-    later(nextRound, ROUND_GAP_MS);
+    if (scenario === 'forfeit' && round === FORFEIT_AFTER_ROUND) {
+      later(() => end('forfeit'), 1500); // the opponent disconnects during the gap (sent at once, no end delay)
+      return;
+    }
+    const last = index + 1 >= SCRIPT.length;
+    later(nextRound, last ? MATCH_END_DELAY_MS : ultimateBy ? ROUND_GAP_ULTIMATE_MS : ROUND_GAP_MS);
   }
 
   function end(reason: MatchEndReason) {
