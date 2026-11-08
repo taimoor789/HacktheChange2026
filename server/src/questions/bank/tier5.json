@@ -1,0 +1,99 @@
+[
+  {
+    "id": "t5-map-1",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "Which built-in Python type stores key-value pairs?",
+    "acceptedAnswers": ["dict", "dictionary"],
+    "explanation": "A dict (dictionary) is Python's hash map: it maps keys to values."
+  },
+  {
+    "id": "t5-map-2",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "What does this print?",
+    "code": "d = {\"a\": 1}\nd[\"b\"] = 2\nprint(len(d))",
+    "acceptedAnswers": ["2"],
+    "explanation": "Assigning to a new key adds it, so the dict has 2 entries."
+  },
+  {
+    "id": "t5-map-3",
+    "type": "fill_blank",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "Which dict method looks up a key and returns a default instead of raising KeyError?",
+    "code": "d = {\"a\": 1}\nprint(d.___(\"z\", 0))",
+    "acceptedAnswers": ["get"],
+    "explanation": "d.get(key, default) returns default when the key is missing, so this prints 0."
+  },
+  {
+    "id": "t5-map-4",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "What does this print?",
+    "code": "counts = {}\nfor ch in \"aab\":\n    counts[ch] = counts.get(ch, 0) + 1\nprint(counts)",
+    "acceptedAnswers": ["{'a': 2, 'b': 1}"],
+    "explanation": "This is the classic frequency-count pattern: a appears twice and b once."
+  },
+  {
+    "id": "t5-map-5",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "What is the average time complexity of looking up a key in a hash map?",
+    "options": ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+    "acceptedAnswers": ["O(1)"],
+    "explanation": "Hashing jumps straight to the right bucket, so a lookup takes constant time on average."
+  },
+  {
+    "id": "t5-rec-1",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "What does this print?",
+    "code": "def f(n):\n    if n == 0:\n        return 0\n    return n + f(n - 1)\n\nprint(f(4))",
+    "acceptedAnswers": ["10"],
+    "explanation": "f(4) = 4 + 3 + 2 + 1 + 0 = 10."
+  },
+  {
+    "id": "t5-rec-2",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "What is the condition that stops a recursive function from calling itself again?",
+    "acceptedAnswers": ["base case", "base condition", "terminating condition"],
+    "explanation": "The base case returns directly without recursing. Without it the recursion never ends."
+  },
+  {
+    "id": "t5-rec-3",
+    "type": "spot_the_bug",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "fact(5) should return 120 but returns 0. Which line number is the bug?",
+    "code": "def fact(n):\n    if n == 0:\n        return 0\n    return n * fact(n - 1)",
+    "acceptedAnswers": ["3"],
+    "explanation": "The base case must return 1, not 0. Multiplying by 0 makes every result 0."
+  },
+  {
+    "id": "t5-rec-4",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "What does this print?",
+    "code": "def fib(n):\n    if n < 2:\n        return n\n    return fib(n - 1) + fib(n - 2)\n\nprint(fib(6))",
+    "acceptedAnswers": ["8"],
+    "explanation": "The sequence is 0, 1, 1, 2, 3, 5, 8, so fib(6) = 8."
+  },
+  {
+    "id": "t5-rec-5",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "What error does Python raise when recursion goes too deep, for example with no base case?",
+    "acceptedAnswers": ["recursionerror", "recursion error", "stack overflow"],
+    "explanation": "Each call uses stack space. Python stops at a depth limit and raises RecursionError."
+  }
+]

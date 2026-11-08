@@ -17,7 +17,36 @@
     "prompt": "What does this print?",
     "code": "total = 0\nfor i in range(4):\n    total += i\nprint(total)",
     "acceptedAnswers": ["6"],
-    "explanation": "range(4) yields 0,1,2,3. Their sum is 6."
+    "explanation": "range(4) yields 0, 1, 2, 3. Their sum is 6."
+  },
+  {
+    "id": "t2-loop-3",
+    "type": "name_concept",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "Which keyword immediately exits the nearest enclosing loop?",
+    "acceptedAnswers": ["break"],
+    "explanation": "break stops the loop right away and continues after it."
+  },
+  {
+    "id": "t2-loop-4",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "What does this print? (one value per line)",
+    "code": "for i in range(1, 4):\n    print(i)",
+    "acceptedAnswers": ["1\n2\n3"],
+    "explanation": "range(1, 4) starts at 1 and stops before 4, so it yields 1, 2, 3."
+  },
+  {
+    "id": "t2-loop-5",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "Which keyword skips the rest of this iteration and moves to the next one?",
+    "code": "for i in range(5):\n    if i == 2:\n        ___\n    print(i)",
+    "acceptedAnswers": ["continue"],
+    "explanation": "continue jumps to the next iteration. Here 2 is skipped and 0, 1, 3, 4 are printed."
   },
   {
     "id": "t2-cond-1",
@@ -47,5 +76,25 @@
     "code": "if a ___ b:\n    print('same')",
     "acceptedAnswers": ["=="],
     "explanation": "== compares for equality; = assigns."
+  },
+  {
+    "id": "t2-cond-4",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "What does this print?",
+    "code": "x = 0\nif x:\n    print(\"yes\")\nelse:\n    print(\"no\")",
+    "acceptedAnswers": ["no"],
+    "explanation": "0 is falsy in Python, so the if branch is skipped and the else branch prints no."
+  },
+  {
+    "id": "t2-cond-5",
+    "type": "spot_the_bug",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "This code has a syntax error. Which line number is wrong?",
+    "code": "age = 18\nif age >= 18\n    print(\"adult\")",
+    "acceptedAnswers": ["2"],
+    "explanation": "The if statement on line 2 is missing its colon: it should be 'if age >= 18:'."
   }
 ]
