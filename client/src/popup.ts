@@ -2,11 +2,13 @@
  * Square popups for the play options. The page behind is greyed out
  * and blocked until the popup is closed (button, Esc, or clicking outside).
  *
- * No backend yet: Quick Match searches forever, Join Friend validates the
- * code format only, Create Lobby shows a random code.
+ * Quick Match joins the server queue and opens the game on match:found.
+ * Join Friend and Create Lobby have no server support yet.
  */
 
+import { joinQueue } from './net/session';
 import { navigate } from './router';
+import { getPlayer } from './state';
 
 export type PopupKind = 'quick' | 'join' | 'create' | 'quit';
 
@@ -83,11 +85,13 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
 
   let timer = 0;
   let closed = false;
+  let leaveQueue: (() => void) | null = null;
 
   function close() {
     if (closed) return;
     closed = true;
     clearInterval(timer);
+    leaveQueue?.();
     window.removeEventListener('keydown', onKey);
     root.remove();
     background.forEach((c) => {
@@ -112,6 +116,11 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
       const s = Math.floor((Date.now() - start) / 1000);
       t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }, 250);
+    leaveQueue = joinQueue(getPlayer(), () => {
+      clearInterval(timer);
+      t.textContent = 'FOUND!';
+      navigate('/game');
+    });
   }
 
   if (kind === 'join') {

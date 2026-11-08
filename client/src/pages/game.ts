@@ -1,4 +1,5 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
+import { currentMatch } from '../net/session';
 import { openPopup } from '../popup';
 import { getPlayer } from '../state';
 import type { Page } from '../types';
@@ -28,10 +29,14 @@ entrySfx.preload = 'auto';
 entrySfx.volume = 0.6;
 
 export function createPage(): Page {
+  const session = currentMatch();
   const player = getPlayer();
-  const me = findCharacter(player.characterId);
+  const you = session?.found.you;
+  const opp = session?.found.opponent;
+  const me = findCharacter(you?.characterId ?? player.characterId);
   const others = CHARACTERS.filter((c) => c.id !== me.id);
-  const opponent = others[Math.floor(Math.random() * others.length)] ?? me;
+  // The real opponent from match:found; a random one only when there is no match (old TEST01 path).
+  const opponent = opp ? findCharacter(opp.characterId) : (others[Math.floor(Math.random() * others.length)] ?? me);
   const stage = STAGES[Math.floor(Math.random() * STAGES.length)];
 
   const el = html(`
@@ -82,7 +87,8 @@ export function createPage(): Page {
     </section>
   `);
 
-  el.querySelector('.fhud__side--p1 .fhud__name')!.textContent = player.name || 'PLAYER';
+  el.querySelector('.fhud__side--p1 .fhud__name')!.textContent = you?.name || player.name || 'PLAYER';
+  el.querySelector('.fhud__side--p2 .fhud__name')!.textContent = opp?.name || 'OPPONENT';
 
   /* ---------- stage: entry once, then loop ---------- */
   const entry = el.querySelector<HTMLVideoElement>('.game__bg--entry')!;
@@ -141,6 +147,7 @@ export function createPage(): Page {
     destroy() {
       clearTimeout(fallback);
       closePopup?.();
+      session?.leave(); // leaving the game page closes the connection (a forfeit mid-match)
       entrySfx.pause();
       for (const v of [entry, loop]) {
         v.pause();
