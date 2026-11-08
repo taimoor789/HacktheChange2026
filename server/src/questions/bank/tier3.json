@@ -34,10 +34,10 @@
     "type": "output_prediction",
     "difficulty": 3,
     "concept": "functions",
-    "prompt": "What does this print? (one value per line)",
-    "code": "def f():\n    print(\"a\")\n\nx = f()\nprint(x)",
-    "acceptedAnswers": ["a\nNone"],
-    "explanation": "f() prints a and returns nothing, so x is None, which is printed next."
+    "prompt": "What does this print?",
+    "code": "def f():\n    pass\n\nprint(f())",
+    "acceptedAnswers": ["None"],
+    "explanation": "A function with no return statement gives back None."
   },
   {
     "id": "t3-func-5",

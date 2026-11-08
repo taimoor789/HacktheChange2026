@@ -33,10 +33,10 @@
     "type": "output_prediction",
     "difficulty": 2,
     "concept": "loops",
-    "prompt": "What does this print? (one value per line)",
-    "code": "for i in range(1, 4):\n    print(i)",
-    "acceptedAnswers": ["1\n2\n3"],
-    "explanation": "range(1, 4) starts at 1 and stops before 4, so it yields 1, 2, 3."
+    "prompt": "What does this print?",
+    "code": "for i in range(1, 4):\n    pass\nprint(i)",
+    "acceptedAnswers": ["3"],
+    "explanation": "range(1, 4) yields 1, 2, 3. The loop variable i keeps its last value, 3, after the loop ends."
   },
   {
     "id": "t2-loop-5",

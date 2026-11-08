@@ -1,0 +1,211 @@
+[
+  {
+    "id": "t1-js-1",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "JavaScript: which keyword declares a variable that cannot be reassigned?",
+    "code": "___ PI = 3.14;",
+    "acceptedAnswers": ["const"],
+    "explanation": "const declares a binding that cannot be reassigned. let allows reassignment."
+  },
+  {
+    "id": "t1-js-2",
+    "type": "output_prediction",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "JavaScript: what does this print?",
+    "code": "console.log(\"5\" + 3);",
+    "acceptedAnswers": ["53"],
+    "explanation": "With a string on one side, + joins text instead of adding: \"5\" and 3 become \"53\"."
+  },
+  {
+    "id": "t1-js-3",
+    "type": "output_prediction",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "JavaScript: what does this print?",
+    "code": "console.log(typeof 42);",
+    "acceptedAnswers": ["number"],
+    "explanation": "typeof returns the type name as a string, and 42 is a number."
+  },
+  {
+    "id": "t1-js-4",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "JavaScript: what character normally ends a statement?",
+    "acceptedAnswers": [";", "semicolon"],
+    "explanation": "Statements end with a semicolon. JavaScript can insert them automatically, but writing them is safer."
+  },
+  {
+    "id": "t2-js-1",
+    "type": "fill_blank",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "JavaScript: which operator checks that two values are equal AND have the same type?",
+    "code": "if (a ___ b) { }",
+    "acceptedAnswers": ["==="],
+    "explanation": "=== is strict equality with no type conversion. == converts types first."
+  },
+  {
+    "id": "t2-js-2",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "loops",
+    "prompt": "JavaScript: what does this print?",
+    "code": "let n = 0;\nfor (let i = 0; i < 3; i++) {\n  n += 2;\n}\nconsole.log(n);",
+    "acceptedAnswers": ["6"],
+    "explanation": "The loop runs 3 times (i = 0, 1, 2) and adds 2 each time: 6."
+  },
+  {
+    "id": "t2-js-3",
+    "type": "output_prediction",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "JavaScript: what does this print?",
+    "code": "console.log(0 == \"0\");",
+    "acceptedAnswers": ["true"],
+    "explanation": "== converts types before comparing, so the string \"0\" becomes the number 0 and they are equal."
+  },
+  {
+    "id": "t2-js-4",
+    "type": "spot_the_bug",
+    "difficulty": 2,
+    "concept": "conditionals",
+    "prompt": "JavaScript: this always prints ten, even though x is 5. Which line number is the bug?",
+    "code": "let x = 5;\nif (x = 10) {\n  console.log(\"ten\");\n}",
+    "acceptedAnswers": ["2"],
+    "explanation": "x = 10 assigns instead of comparing, and 10 is truthy. It should be x === 10."
+  },
+  {
+    "id": "t3-js-1",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "JavaScript: which symbol makes an arrow function?",
+    "code": "const add = (a, b) ___ a + b;",
+    "acceptedAnswers": ["=>"],
+    "explanation": "Arrow functions are written (params) => expression."
+  },
+  {
+    "id": "t3-js-2",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "scope",
+    "prompt": "JavaScript: what does this print?",
+    "code": "var x = 1;\nfunction f() {\n  var x = 2;\n}\nf();\nconsole.log(x);",
+    "acceptedAnswers": ["1"],
+    "explanation": "var inside the function is local to it, so the outer x stays 1."
+  },
+  {
+    "id": "t3-js-3",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "JavaScript: what does this print?",
+    "code": "function f() {}\nconsole.log(f());",
+    "acceptedAnswers": ["undefined"],
+    "explanation": "A function with no return statement gives back undefined."
+  },
+  {
+    "id": "t3-js-4",
+    "type": "spot_the_bug",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "JavaScript: double(4) prints undefined instead of 8. Which line number is the bug?",
+    "code": "function double(n) {\n  n * 2;\n}\nconsole.log(double(4));",
+    "acceptedAnswers": ["2"],
+    "explanation": "Line 2 computes n * 2 but never returns it. It should be return n * 2;"
+  },
+  {
+    "id": "t4-js-1",
+    "type": "output_prediction",
+    "difficulty": 4,
+    "concept": "arrays",
+    "prompt": "JavaScript: what does this print?",
+    "code": "console.log([1, 2, 3].map(x => x * 2)[2]);",
+    "acceptedAnswers": ["6"],
+    "explanation": "map doubles every item to 2, 4, 6, and index 2 is 6."
+  },
+  {
+    "id": "t4-js-2",
+    "type": "output_prediction",
+    "difficulty": 4,
+    "concept": "strings",
+    "prompt": "JavaScript: what does this print?",
+    "code": "console.log(\"abc\".length + \"abc\".indexOf(\"c\"));",
+    "acceptedAnswers": ["5"],
+    "explanation": "The length is 3 and indexOf(\"c\") is 2, so 3 + 2 = 5."
+  },
+  {
+    "id": "t4-js-3",
+    "type": "fill_blank",
+    "difficulty": 4,
+    "concept": "arrays",
+    "prompt": "JavaScript: which array method adds an element to the end?",
+    "code": "arr.___(4);",
+    "acceptedAnswers": ["push"],
+    "explanation": "push adds to the end, pop removes from the end."
+  },
+  {
+    "id": "t4-js-4",
+    "type": "spot_the_bug",
+    "difficulty": 4,
+    "concept": "arrays",
+    "prompt": "JavaScript: this prints an extra undefined at the end. Which line number is the bug?",
+    "code": "const nums = [1, 2, 3];\nfor (let i = 0; i <= nums.length; i++) {\n  console.log(nums[i]);\n}",
+    "acceptedAnswers": ["2"],
+    "explanation": "i <= nums.length goes one past the last index. It should be i < nums.length."
+  },
+  {
+    "id": "t5-js-1",
+    "type": "name_concept",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "JavaScript: which built-in type stores key-value pairs, allows any type as a key and remembers insertion order?",
+    "options": ["Map", "Set", "Array", "Date"],
+    "acceptedAnswers": ["Map"],
+    "explanation": "Map is the dedicated key-value collection. A plain object only allows string and symbol keys."
+  },
+  {
+    "id": "t5-js-2",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "hash maps",
+    "prompt": "JavaScript: what does this print?",
+    "code": "const m = new Map();\nm.set(\"a\", 1);\nm.set(\"a\", 2);\nconsole.log(m.size);",
+    "acceptedAnswers": ["1"],
+    "explanation": "Setting an existing key overwrites its value, so the map still has one entry."
+  },
+  {
+    "id": "t5-js-3",
+    "type": "output_prediction",
+    "difficulty": 5,
+    "concept": "recursion",
+    "prompt": "JavaScript: what does this print?",
+    "code": "const f = n => (n <= 1 ? 1 : n * f(n - 1));\nconsole.log(f(4));",
+    "acceptedAnswers": ["24"],
+    "explanation": "f(4) = 4 * 3 * 2 * 1 = 24."
+  },
+  {
+    "id": "t6-js-1",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "JavaScript: what is the time complexity of includes on an unsorted array of n items?",
+    "options": ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+    "acceptedAnswers": ["O(n)"],
+    "explanation": "includes may have to check every element, so it takes linear time."
+  },
+  {
+    "id": "t6-js-2",
+    "type": "spot_the_bug",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "JavaScript: this should return a tree's height but is always 0. Which line number is the bug?",
+    "code": "function height(n) {\n  if (n === null) return 0;\n  return Math.max(height(n.left), height(n.right));\n}",
+    "acceptedAnswers": ["3"],
+    "explanation": "The line must add 1 for the current node: return 1 + Math.max(...)."
+  }
+]
