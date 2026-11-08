@@ -12,6 +12,9 @@ export const CLIENT_EVENTS = {
   QUEUE_JOIN: 'queue:join',
   ANSWER_SUBMIT: 'answer:submit',
   CONNECT_REQUEST: 'connect:request',
+  LOBBY_CREATE: 'lobby:create',
+  LOBBY_JOIN: 'lobby:join',
+  LOBBY_LEAVE: 'lobby:leave',
 } as const;
 
 export const SERVER_EVENTS = {
@@ -21,6 +24,9 @@ export const SERVER_EVENTS = {
   ANSWER_HINT: 'answer:hint',
   ULTIMATE_READY: 'ultimate:ready',
   MATCH_END: 'match:end',
+  LOBBY_CREATED: 'lobby:created',
+  LOBBY_CLOSED: 'lobby:closed',
+  LOBBY_ERROR: 'lobby:error',
 } as const;
 
 // ---------- client -> server payloads ----------
@@ -44,6 +50,31 @@ export interface ConnectRequestPayload {
   matchId: string;
   /** The opponent the player wants to connect with. */
   targetPlayerId: PlayerId;
+}
+
+export interface LobbyCreatePayload {
+  displayName?: string;
+}
+
+export interface LobbyJoinPayload {
+  code: string;
+  displayName?: string;
+}
+
+export type LobbyClosedReason = 'expired' | 'host_left';
+
+export interface LobbyCreatedPayload {
+  code: string;
+}
+
+export interface LobbyClosedPayload {
+  reason: LobbyClosedReason;
+}
+
+export type LobbyErrorReason = 'not_found' | 'full' | 'expired' | 'busy' | 'rate_limited' | 'own_lobby';
+
+export interface LobbyErrorPayload {
+  reason: LobbyErrorReason;
 }
 
 // ---------- server -> client payloads ----------
@@ -132,6 +163,9 @@ export interface ClientToServerEvents {
   [CLIENT_EVENTS.QUEUE_JOIN]: (p: QueueJoinPayload) => void;
   [CLIENT_EVENTS.ANSWER_SUBMIT]: (p: AnswerSubmitPayload) => void;
   [CLIENT_EVENTS.CONNECT_REQUEST]: (p: ConnectRequestPayload) => void;
+  [CLIENT_EVENTS.LOBBY_CREATE]: (p: LobbyCreatePayload) => void;
+  [CLIENT_EVENTS.LOBBY_JOIN]: (p: LobbyJoinPayload) => void;
+  [CLIENT_EVENTS.LOBBY_LEAVE]: () => void;
 }
 
 export interface ServerToClientEvents {
@@ -141,4 +175,7 @@ export interface ServerToClientEvents {
   [SERVER_EVENTS.ANSWER_HINT]: (p: AnswerHintPayload) => void;
   [SERVER_EVENTS.ULTIMATE_READY]: (p: UltimateReadyPayload) => void;
   [SERVER_EVENTS.MATCH_END]: (p: MatchEndPayload) => void;
+  [SERVER_EVENTS.LOBBY_CREATED]: (p: LobbyCreatedPayload) => void;
+  [SERVER_EVENTS.LOBBY_CLOSED]: (p: LobbyClosedPayload) => void;
+  [SERVER_EVENTS.LOBBY_ERROR]: (p: LobbyErrorPayload) => void;
 }
