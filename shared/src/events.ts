@@ -18,6 +18,7 @@ export const SERVER_EVENTS = {
   MATCH_FOUND: 'match:found',
   ROUND_START: 'round:start',
   ROUND_RESULT: 'round:result',
+  ANSWER_HINT: 'answer:hint',
   ULTIMATE_READY: 'ultimate:ready',
   MATCH_END: 'match:end',
 } as const;
@@ -71,17 +72,31 @@ export interface PlayerRoundOutcome {
   answerMs?: number;
 }
 
+export interface DamageEvent {
+  to: PlayerId;
+  amount: number;
+  attackSize: AttackSize;
+  /** Null when the hit is mutual miss damage. */
+  attacker: PlayerId | null;
+}
+
 export interface RoundResultPayload {
   matchId: string;
   round: number;
   questionId: string;
   outcomes: Record<PlayerId, PlayerRoundOutcome>;
-  /** Who got hit (null = nobody took damage). */
-  damage: { to: PlayerId | null; amount: number; attackSize: AttackSize; attacker: PlayerId | null };
+  /** One element per player who lost HP. Empty on a tie or a safety-cap double miss. */
+  damage: DamageEvent[];
   /** Authoritative state after the round: new HP, combo, ultimate charge for both. */
   players: Record<PlayerId, PlayerState>;
   /** Tier of the next round. */
   nextTier: number;
+}
+
+export interface AnswerHintPayload {
+  matchId: string;
+  round: number;
+  suggestion: string;
 }
 
 export interface UltimateReadyPayload {
@@ -101,11 +116,14 @@ export interface ReviewItem {
   answers: Record<PlayerId, { submitted: string | null; correct: boolean }>;
 }
 
+export type MatchEndReason = 'hp_zero' | 'tiers_complete' | 'max_rounds';
+
 export interface MatchEndPayload {
   matchId: string;
   winnerId: PlayerId | null;
   players: Record<PlayerId, PlayerState>;
   review: ReviewItem[];
+  reason: MatchEndReason;
 }
 
 // ---------- typed Socket.IO maps ----------
@@ -120,6 +138,7 @@ export interface ServerToClientEvents {
   [SERVER_EVENTS.MATCH_FOUND]: (p: MatchFoundPayload) => void;
   [SERVER_EVENTS.ROUND_START]: (p: RoundStartPayload) => void;
   [SERVER_EVENTS.ROUND_RESULT]: (p: RoundResultPayload) => void;
+  [SERVER_EVENTS.ANSWER_HINT]: (p: AnswerHintPayload) => void;
   [SERVER_EVENTS.ULTIMATE_READY]: (p: UltimateReadyPayload) => void;
   [SERVER_EVENTS.MATCH_END]: (p: MatchEndPayload) => void;
 }

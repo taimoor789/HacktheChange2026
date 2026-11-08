@@ -75,12 +75,14 @@ export function createMockSocket() {
             me: { answered: hit, correct: hit, answerMs: 1200 },
             bot: { answered: !hit, correct: !hit, answerMs: 1800 },
           },
-          damage: {
-            to: hit ? 'bot' : 'me',
-            amount: hit ? 20 : 10,
-            attackSize: 'light',
-            attacker: hit ? 'me' : 'bot',
-          },
+          damage: [
+            {
+              to: hit ? 'bot' : 'me',
+              amount: hit ? 20 : 10,
+              attackSize: 'light',
+              attacker: hit ? 'me' : 'bot',
+            },
+          ],
           players: { me: { ...me }, bot: { ...bot } },
           nextTier: 1,
         });
@@ -91,6 +93,7 @@ export function createMockSocket() {
         fire(SERVER_EVENTS.MATCH_END, {
           matchId,
           winnerId: 'me',
+          reason: 'hp_zero',
           players: { me: { ...me }, bot: { ...bot } },
           review: [
             {

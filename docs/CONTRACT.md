@@ -30,9 +30,14 @@ Client to server:
 Server to client:
 - `match:found` `{ matchId, you, opponent }`
 - `round:start` `{ matchId, round, tier, question: PublicQuestion, deadline, serverNow }`
-- `round:result` `{ matchId, round, questionId, outcomes, damage, players, nextTier }`
+- `round:result` `{ matchId, round, questionId, outcomes, damage: DamageEvent[], players, nextTier }`
+- `answer:hint` `{ matchId, round, suggestion }` (sent only to the player who typed the near-miss)
 - `ultimate:ready` `{ matchId, playerId }`
-- `match:end` `{ matchId, winnerId, players, review: ReviewItem[] }`
+- `match:end` `{ matchId, winnerId, players, review: ReviewItem[], reason }`
+
+`DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two elements. A tie, or a safety-cap double miss, is `damage: []`.
+
+`reason` is `hp_zero`, `tiers_complete`, or `max_rounds`.
 
 ## Game state
 
