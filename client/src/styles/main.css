@@ -843,6 +843,27 @@ body {
 .fighter--p1 { left: calc(var(--x) - var(--box-w) / 2); }
 .fighter--p2 { right: calc(var(--x) - var(--box-w) / 2); }
 
+/* Attack GIF (match/attacks.ts): 720x576, the idle frame plus 120px each side, facing right.
+   Same height as the idle art, 1.5x as wide, centred on the same body. The 13px body offset
+   of the right-facing art is 1.81% of 720. P2 mirrors the right-facing file. */
+.fighter.is-attacking { z-index: 2; }
+.fighter.is-attacking .sprite--art:not(.sprite--attack) { visibility: hidden; }
+.fighter .sprite--art.sprite--attack {
+  position: absolute;
+  top: 0;
+  left: -25%;
+  width: 150%;
+  height: 100%;
+  max-width: none;
+  transform: translateX(-1.81%);
+}
+.fighter .sprite--art.sprite--attack.is-mirrored {
+  transform: translateX(1.81%) scaleX(-1);
+}
+.fighter.is-ultimate .sprite--attack {
+  filter: drop-shadow(0 0 6px var(--c-pink)) drop-shadow(0 0 2px #fff);
+}
+
 /* ---------- Bottom 1/4: empty panels ---------- */
 .desk {
   position: absolute;

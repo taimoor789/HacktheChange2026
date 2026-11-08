@@ -3,7 +3,8 @@
  * and keeps the HUD (health, combo, ultimate) in sync with the server's events.
  *
  * Everything here only renders what the server sends. The server decides correctness,
- * damage and the round's end. No attack animations here (see the CUTSCENE note below).
+ * damage and the round's end. The attacker's attack GIF plays on a hit (match/attacks.ts);
+ * full cutscenes go where the CUTSCENE note is below.
  */
 import {
   ULTIMATE_CHARGE_NEEDED,
@@ -14,7 +15,9 @@ import {
   type RoundResultPayload,
   type RoundStartPayload,
 } from '@beatcode/shared';
+import { findCharacter } from '../characters';
 import type { MatchSession, ServerEvent } from '../net/session';
+import { ATTACK_HIT_MS, playAttack, preloadAttack } from './attacks';
 import { endCallout } from './endScreen';
 
 const TYPE_LABEL: Record<QuestionType, string> = {
@@ -72,6 +75,15 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
   }
   renderPlayer(session.found.you);
   renderPlayer(session.found.opponent);
+
+  /* ---------- attacks ---------- */
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fighters: Record<string, { el: HTMLElement; char: ReturnType<typeof findCharacter> }> = {
+    [youId]: { el: root.querySelector<HTMLElement>('.fighter--p1')!, char: findCharacter(session.found.you.characterId) },
+    [oppId]: { el: root.querySelector<HTMLElement>('.fighter--p2')!, char: findCharacter(session.found.opponent.characterId) },
+  };
+  Object.values(fighters).forEach((f) => void preloadAttack(f.char));
+  let hudTimer = 0;
 
   let bannerTimer = 0;
   function showBanner(lines: string[], tone = '') {
@@ -305,11 +317,25 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
   }
 
   function onResult(p: RoundResultPayload) {
-    // CUTSCENE: play the attack / hit / ultimate cutscene here, before the bars change.
+    // CUTSCENE: full attack / hit / ultimate cutscenes go here, before the bars change.
     // p.damage lists each hit: { attacker (null = mutual miss), to, amount, attackSize }.
-    // attackSize is 'light' | 'medium' | 'heavy' | 'ultimate'. Owned by the cutscene teammate;
-    // await it here, then run the HUD update below.
-    for (const player of Object.values(p.players)) renderPlayer(player);
+    // attackSize is 'light' | 'medium' | 'heavy' | 'ultimate'.
+    // For now the attacker plays their attack GIF and the bars drop when the blow lands.
+    // Not awaited: the server starts the next round straight away.
+    const hits = p.damage.filter((d) => d.attacker !== null && fighters[d.attacker]);
+    const updateHud = () => {
+      for (const player of Object.values(p.players)) renderPlayer(player);
+    };
+    clearTimeout(hudTimer);
+    if (hits.length && !reduceMotion) {
+      for (const d of hits) {
+        const f = fighters[d.attacker!];
+        void playAttack(f.el, f.char, { ultimate: d.attackSize === 'ultimate' });
+      }
+      hudTimer = window.setTimeout(updateHud, ATTACK_HIT_MS);
+    } else {
+      updateHud();
+    }
 
     const lines: string[] = [];
     if (p.damage.length === 0) lines.push('NO DAMAGE');
@@ -339,7 +365,12 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     stopClock();
     roundOpen = false;
     controls.forEach((c) => (c.disabled = true));
-    for (const player of Object.values(p.players)) renderPlayer(player);
+    // let a knockout blow land before the final bars show
+    const final = () => {
+      for (const player of Object.values(p.players)) renderPlayer(player);
+    };
+    if (hudTimer) window.setTimeout(final, ATTACK_HIT_MS);
+    else final();
     setStatus('MATCH OVER');
     showBanner([endCallout(p)], p.winnerId === youId ? 'good' : p.winnerId === null ? '' : 'bad');
     opts.onEnd(p);
@@ -366,5 +397,6 @@ export function mountBattle(root: HTMLElement, session: MatchSession, opts: Batt
     stopClock();
     clearTimeout(bannerTimer);
     clearTimeout(hintTimer);
+    clearTimeout(hudTimer);
   };
 }

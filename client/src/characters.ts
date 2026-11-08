@@ -5,6 +5,8 @@
  * /assets/characters/<id>/:
  *   idle-left.gif  idle-right.gif   animated idle, facing left / right
  *   still-left.png still-right.png  single frame (portraits)
+ *   attack-right.gif                one attack, 720x576 (the idle frame plus 120px each side);
+ *                                   mirrored in CSS for the left-facing player (see match/attacks.ts)
  * All art shares one 480x576 frame (see ART_FRAME). Characters without art
  * use a generated pixel placeholder from the grid below.
  */
@@ -13,6 +15,8 @@ export interface Character {
   name: string;
   /** Has drawn art in /assets/characters/<id>/. */
   art?: boolean;
+  /** Has attack-right.gif in /assets/characters/<id>/. */
+  attack?: boolean;
   palette: { hair: string; skin: string; shirt: string; pants: string; boots: string };
   /** Optional replacement for the top (hair) rows of the placeholder grid. */
   hair?: string[];
@@ -35,6 +39,7 @@ export const CHARACTERS: Character[] = [
     id: 'glitch',
     name: 'GLITCH',
     art: true,
+    attack: true,
     palette: { hair: '#d877e6', skin: '#f1c9a5', shirt: '#2fd39a', pants: '#3b2a4a', boots: '#111' },
     hair: ['...HHHHHH...', '..HHHHHHHH..', '..HHSSSSHH..'],
   },
@@ -42,6 +47,7 @@ export const CHARACTERS: Character[] = [
     id: 'null',
     name: 'NULL',
     art: true,
+    attack: true,
     palette: { hair: '#e8e2d8', skin: '#b07850', shirt: '#79c4e8', pants: '#1f2a36', boots: '#111' },
     hair: ['............', '....HHHH....', '...HSSSSH...'],
   },
@@ -49,12 +55,14 @@ export const CHARACTERS: Character[] = [
     id: 'bram',
     name: 'BRAM',
     art: true,
+    attack: true,
     palette: { hair: '#5a3a24', skin: '#c58a5e', shirt: '#7a3e2a', pants: '#3e3846', boots: '#6a3a22' },
   },
   {
     id: 'skye',
     name: 'SKYE',
     art: true,
+    attack: true,
     palette: { hair: '#e0a94e', skin: '#f3d2b3', shirt: '#b48ad6', pants: '#8f6fb0', boots: '#2a2030' },
   },
 
