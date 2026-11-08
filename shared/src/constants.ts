@@ -43,3 +43,21 @@ export const RACE_MODE_TYPES: readonly QuestionType[] = [
 
 /** Default: advance one tier every N rounds where at least one player answered correctly. TUNABLE. */
 export const ROUNDS_PER_TIER = 2;
+
+/** Match ends after this many rounds if nobody has reached 0 HP. */
+export const MAX_ROUNDS = 12;
+
+/**
+ * Max extra fraction of tier base damage for an instant answer. Linear down to 0 at the deadline.
+ * An instant tier-1 hit is 8 * 1.5 = 12; an answer at the deadline is just the base.
+ */
+export const SPEED_BONUS_MAX = 0.5;
+
+/**
+ * Flat chip when neither player is correct. 4 is half of the smallest hit (tier 1 base 8)
+ * and 4% of starting HP (100), so misses sting without competing with a real hit.
+ */
+export const MISS_DAMAGE = 4;
+
+/** Consecutive correct answers (combo) required to fire an ultimate on a round that player wins. */
+export const ULT_STREAK = 3;
