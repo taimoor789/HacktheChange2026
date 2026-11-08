@@ -7,6 +7,7 @@ import { isCorrect } from './questions/answerMatching';
 import { getQuestionSeconds } from './questions/ladder';
 import { loadBank } from './questions/schema';
 import { getNextQuestion, toPublicQuestion } from './questions/selector';
+import { checkAnswer } from './questions/suggestion';
 
 let bankCache: Question[] | undefined;
 
@@ -33,6 +34,27 @@ export function publicQuestion(question: Question): PublicQuestion {
 
 export function answerIsCorrect(question: Question, submitted: string): boolean {
   return isCorrect(question, submitted);
+}
+
+export type GradeResult =
+  | { status: 'correct' }
+  | { status: 'wrong' }
+  | { status: 'suggest'; suggestion: string };
+
+const NO_HINT = new Set<QuestionType>(['spot_the_bug', 'rewrite_code']);
+
+/**
+ * isCorrect is the only judge of correctness.
+ * Typed single-line questions may return a hint. That hint is not a correct answer.
+ * Option questions, spot_the_bug, and rewrite_code never hint.
+ */
+export function gradeSubmission(question: Question, submitted: string, hintsUsed: number): GradeResult {
+  if (question.options || NO_HINT.has(question.type)) {
+    return { status: isCorrect(question, submitted) ? 'correct' : 'wrong' };
+  }
+  const check = checkAnswer(question, submitted, hintsUsed);
+  if (check.status === 'suggest') return { status: 'suggest', suggestion: check.suggestion };
+  return { status: check.status };
 }
 
 /** Round length in milliseconds. Long questions keep their own `seconds` floor. */
