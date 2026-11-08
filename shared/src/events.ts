@@ -116,7 +116,7 @@ export interface ReviewItem {
   answers: Record<PlayerId, { submitted: string | null; correct: boolean }>;
 }
 
-export type MatchEndReason = 'hp_zero' | 'tiers_complete' | 'max_rounds';
+export type MatchEndReason = 'hp_zero' | 'tiers_complete' | 'max_rounds' | 'forfeit';
 
 export interface MatchEndPayload {
   matchId: string;

@@ -37,7 +37,7 @@ Server to client:
 
 `DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two elements. A tie, or a safety-cap double miss, is `damage: []`.
 
-`reason` is `hp_zero`, `tiers_complete`, or `max_rounds`.
+`reason` is `hp_zero`, `tiers_complete`, `max_rounds`, or `forfeit`. `forfeit` means the other player left. The remaining player wins.
 
 ## Game state
 
