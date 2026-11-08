@@ -1,4 +1,4 @@
-# BeatCode Contract
+# CODEL Contract
 
 Source of truth: `shared/src/`. This file is a plain-language copy. If they disagree, the code wins.
 Changing anything here needs **all three owners** (A, B, C) to agree.
@@ -37,6 +37,7 @@ Server to client:
 - `answer:hint` `{ matchId, round, suggestion }` (sent only to the player who typed the near-miss)
 - `ultimate:ready` `{ matchId, playerId }`
 - `match:end` `{ matchId, winnerId, players, review: ReviewItem[], reason }`
+- `connect:update` `{ matchId, status, opponentLinkedinUrl? }`
 - `lobby:created` `{ code }`
 - `lobby:closed` `{ reason }` where `reason` is `expired` or `host_left`
 - `lobby:error` `{ reason }` where `reason` is `not_found`, `full`, `expired`, `busy`, `rate_limited`, or `own_lobby`
@@ -53,7 +54,7 @@ A lobby code is 5 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and lasts `L
 
 The server ignores an `answer:submit` that is not a string, is longer than 2000 characters, arrives after `deadline`, names another match, round, or question, or is a second counted answer in that round. One `answer:hint` per question, and only to the player who typed the near-miss. Owner B shows "Did you mean: <suggestion>" and can submit that text.
 
-Step 9 (LinkedIn Connect) is postponed. The server ignores `connect:request`, `linkedinUrl`, and `vsBot`. There is no bot. `isBot` is false.
+LinkedIn Connect: `linkedinUrl` is optional on `queue:join`, `lobby:create` and `lobby:join`, and is kept only as a `https://www.linkedin.com/in/...` link. After `match:end`, `connect:request` `{ matchId, targetPlayerId }` asks to swap links. The server answers with `connect:update` `{ matchId, status, opponentLinkedinUrl? }`: `waiting`, `requested`, `connected` (both asked, the link is sent, or null if none was added), or `unavailable` (the opponent left). `vsBot` is ignored. There is no bot. `isBot` is false.
 
 ## Game state
 

@@ -76,11 +76,11 @@ Step 10. The question is not sent with `match:found`. The first `round:start` wa
 
 Step 11. `lobby:create` returns `lobby:created` with a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`. The host waits. `lobby:join` trims and uppercases the code. If the lobby is open, unexpired, and the host is a different connected socket, the code is removed and both players get `match:found`. Otherwise `lobby:error`. A socket is in only one of the queue, a lobby, or a match (`busy`). Joining your own lobby is `own_lobby`. A used code is `not_found`. The host gets `lobby:closed` `expired` after `LOBBY_TTL_MS`, or `host_left` on `lobby:leave`. Five failed joins per minute, then `rate_limited`. There is no lobby list. Names are trimmed, control characters stripped, cut at 24 characters, or `Player`. Both lobby events take an optional `characterId` like `queue:join`; a missing or invalid one (not 1 to 32 letters, digits, `_` or `-`) is `player`.
 
-Step 9 (LinkedIn Connect) is postponed. `connect:request`, `linkedinUrl`, and `vsBot` are on the contract and are not implemented. `isBot` is always false.
+Step 9. LinkedIn Connect: `linkedinUrl` is optional on `queue:join`, `lobby:create` and `lobby:join`, and is kept only as a `https://www.linkedin.com/in/...` link. After `match:end`, `connect:request` `{ matchId, targetPlayerId }` asks to swap links. The server answers with `connect:update` `{ matchId, status, opponentLinkedinUrl? }`: `waiting`, `requested`, `connected` (both asked, the link is sent, or null if none was added), or `unavailable` (the opponent left). `vsBot` is ignored. There is no bot. `isBot` is false.
 
 ## Deferred
 
-Leave these constants in `shared/` and do not implement them: comeback (`COMEBACK_*`), combo multipliers (`COMBO_MULTIPLIERS`), per-tier ultimate charge (`ULTIMATE_CHARGE_BY_TIER`), and wrong-answer lockout (`WRONG_ANSWER_LOCKOUT_MS`). Also deferred: items and power-ups, ELO, guilds, tournaments, the bot, and Step 9 (LinkedIn Connect).
+Leave these constants in `shared/` and do not implement them: comeback (`COMEBACK_*`), combo multipliers (`COMBO_MULTIPLIERS`), per-tier ultimate charge (`ULTIMATE_CHARGE_BY_TIER`), and wrong-answer lockout (`WRONG_ANSWER_LOCKOUT_MS`). Also deferred: items and power-ups, ELO, guilds, tournaments, and the bot.
 
 ## Contract status
 
