@@ -2,7 +2,7 @@
 
 Real-time 1v1 coding-quiz battles with anime-style fighters. Correct answers attack, wrong answers
 get you hit. Questions climb a concept ladder (easy to hard) and the timer shrinks as the tier rises.
-A bot opponent lets anyone play solo. Full concept: see the team's `beatcode-idea.md`.
+Both players are human. LinkedIn Connect (Step 9) is postponed. Full concept: see the team's `beatcode-idea.md`.
 
 ## Run it
 
@@ -19,7 +19,7 @@ npm run dev              # server on :3001, client on :5173
 
 | Folder | Owner | Responsibility |
 |---|---|---|
-| `server/src/` (except `questions/`) | **A** Multiplayer + Game Engine | sockets, matchmaking, rooms, timers, answer checking, battle rules, bot |
+| `server/src/` (except `questions/`) | **A** Multiplayer + Game Engine | sockets, matchmaking, rooms, timers, answer checking, battle rules |
 | `client/` | **B** Graphical Interface | screens, HP bars, animations, cutscenes, sound, profile + post-match UI |
 | `server/src/questions/` | **C** Questions + Ladder | schema, bank, concept ladder, selector, timer-per-tier, answer matching |
 | `shared/` | **Everyone** | the contract: types, socket events, constants |

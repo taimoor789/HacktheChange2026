@@ -36,18 +36,19 @@ Round result:
 - Race types (`fill_blank`, `name_concept`, `output_prediction`, `rewrite_code`) end on the first correct answer. The slower player's streak freezes: no reset and no increment. A wrong answer or a true timeout still resets it.
 - `rewrite_code` is a race. `isCorrect` returns a plain boolean. A typo suggestion from `checkAnswer` is a hint only and is not a correct answer.
 - `spot_the_bug` waits until both have answered or the deadline hits, then the same correctness-then-speed rule applies.
-- Round length is `getQuestionSeconds(question)` (the question's own `seconds` floor, otherwise the tier timer).
-- One submission per player per round.
+- Round length is `getQuestionSeconds(question)`: the tier timer, raised to the question's own `seconds` when that is longer, and never more than 60 seconds. The client counts down from `round:start`'s `deadline` and `serverNow`.
+- One counted submission per player per round. A hint does not count as that submission.
 - Hit damage is the tier base from `DAMAGE_BY_TIER`, plus a linear speed bonus up to `SPEED_BONUS_MAX` (50% at the instant the round starts, 0 at the deadline). Round to the nearest integer. Only the round winner deals this damage.
 - If neither is correct, both take flat `MISS_DAMAGE`, capped so HP cannot fall below 1. That chip is skipped only on the safety-cap round (`roundNumber === MAX_ROUNDS`), not when the ladder finishes.
 - A normal hit can reduce HP to 0. HP never goes negative. `amount` is the HP actually lost.
 - `attackSize` for a non-ultimate hit: `light` below 15% of the speed-bonus range, `medium` below 35%, `heavy` at or above 35%. Miss ticks are `light`. An ultimate hit is `ultimate`.
 
-Match end. `match:end` carries `reason`. Owner B: a kill animation on `hp_zero`, and a "time's up" screen otherwise, is a guess, not confirmed.
+Match end. `match:end` carries `reason`. Owner B: a kill animation on `hp_zero`, and a "time's up" screen for `tiers_complete` or `max_rounds`, is a guess, not confirmed. `forfeit` means the other player left. The remaining player wins.
 
 - `hp_zero`: either HP is 0. The player still above 0 wins. Both at 0 is a draw. This wins over the other two reasons in the same round.
 - `tiers_complete`: `roundsWithCorrect` reaches `MAX_TIER * ROUNDS_PER_TIER`. Higher HP wins. Equal HP is a draw.
 - `max_rounds`: hard safety cap at `MAX_ROUNDS` (16) if the ladder never finishes. Higher HP wins. Equal HP is a draw.
+- `forfeit`: a player disconnected. `winnerId` is the player still connected. `review` is the rounds finished so far, and it is empty when none have finished.
 
 Difficulty:
 
@@ -68,11 +69,15 @@ The engine owns tier progression. Do not build on `QUESTIONS_PER_TIER` or `compl
 
 ## Socket behavior
 
-Built in Step 5. After a wrong answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. The round closes on the first correct answer or when the timer ends. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1.
+`shared/src/` is the source of truth for events and payloads. Built in Step 5. After a wrong counted answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. Race rounds close on the first correct answer. `spot_the_bug` waits for both counted answers or the deadline. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1. `answer:hint` goes only to the player who typed the near-miss. Option questions, `spot_the_bug`, and `rewrite_code` never hint. Owner B: show "Did you mean: <suggestion>", put it in the input, and submit it on Enter.
+
+Step 7. `queue:join` pairs the next two humans. A second join from the same socket, or a join during a match, is ignored. Disconnecting while waiting leaves the queue. The server ignores a submission that is not a string, is longer than 2000 characters, arrives after `deadline`, names another match, round, or question, comes from a socket that is not in the match, or is a second counted submission in that round. A disconnect during a match emits `match:end` with `reason: "forfeit"` and `winnerId` set to the remaining player.
+
+Step 9 (LinkedIn Connect) is postponed. `connect:request`, `linkedinUrl`, and `vsBot` are on the contract and are not implemented. `isBot` is always false.
 
 ## Deferred
 
-Leave these constants in `shared/` and do not implement them: comeback (`COMEBACK_*`), combo multipliers (`COMBO_MULTIPLIERS`), per-tier ultimate charge (`ULTIMATE_CHARGE_BY_TIER`), and wrong-answer lockout (`WRONG_ANSWER_LOCKOUT_MS`). Also deferred: items and power-ups, ELO, guilds, and tournaments.
+Leave these constants in `shared/` and do not implement them: comeback (`COMEBACK_*`), combo multipliers (`COMBO_MULTIPLIERS`), per-tier ultimate charge (`ULTIMATE_CHARGE_BY_TIER`), and wrong-answer lockout (`WRONG_ANSWER_LOCKOUT_MS`). Also deferred: items and power-ups, ELO, guilds, tournaments, the bot, and Step 9 (LinkedIn Connect).
 
 ## Contract status
 
@@ -83,5 +88,6 @@ Leave these constants in `shared/` and do not implement them: comeback (`COMEBAC
 | Round time from `getQuestionSeconds(question)` | Adopted |
 | `round:result` `damage` as `DamageEvent[]`, `answer:hint`, and `match:end` `reason` | Applied in one commit. Pending approval from B and C |
 | Hint cap is 1. The engine passes `hintsUsed` to `checkAnswer` | Applied |
+| `forfeit` on `MatchEndReason` | Applied. Pending approval from B and C |
 
-`DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, or `max_rounds`.
+`DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, `max_rounds`, or `forfeit`.
