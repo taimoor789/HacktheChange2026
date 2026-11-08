@@ -1,12 +1,12 @@
 # CODEL agent notes
 
-CODEL (Compete Online: Debug, Execute, LARP) is a real-time 1v1 coding-quiz battle. Both players get the same question. A correct answer hits the opponent. Wrong or missing answers cost you. Questions climb a concept ladder, the timer shrinks as the tier rises, and a bot exists so someone can play solo.
+CODEL (Compete Online: Debug, Execute, LARP) is a real-time 1v1 coding-quiz battle. Both players are human. Both get the same question. A correct answer hits the opponent. Wrong or missing answers cost you. Questions climb a concept ladder, and the timer shrinks as the tier rises.
 
 ## Ownership
 
 | Zone | Owner | Rule |
 |---|---|---|
-| `server/` except `server/src/questions/` | A (multiplayer + game engine) | sockets, rooms, timers, battle rules, bot |
+| `server/` except `server/src/questions/` | A (multiplayer + game engine) | sockets, rooms, timers, battle rules |
 | `client/` | B (interface) | screens, animation, sound, profile, post-match UI |
 | `server/src/questions/` | C (questions + ladder) | bank, selector, answer matching, timer lookup |
 | `shared/` | A, B, and C | types, socket events, constants. All three must agree before a change. |
@@ -62,13 +62,13 @@ Ultimate:
 
 ## Questions module contract (for Owner C)
 
-The engine reaches the questions module only through `server/src/matchQuestions.ts`. It uses `getNextQuestion`, `toPublicQuestion`, `isCorrect`, and `getQuestionSeconds`. If you change a signature, tell Owner A first.
+The engine reaches the questions module only through `server/src/matchQuestions.ts`. It uses `getNextQuestion`, `toPublicQuestion`, `isCorrect`, `getQuestionSeconds`, and `checkAnswer`. If you change a signature, tell Owner A first. `checkAnswer(question, submitted, hintsUsed)` takes a required `hintsUsed`. The engine passes that player's count for that question, starting at 0. The cap is 1.
 
 The engine owns tier progression. Do not build on `QUESTIONS_PER_TIER` or `completeQuestion`. Every tier up to `MAX_TIER` needs enough questions that a match never runs out.
 
-## Planned socket behavior
+## Socket behavior
 
-Not built yet. After a wrong answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. The round closes on the first correct answer or when the timer ends.
+Built in Step 5. After a wrong answer, that player is locked out for the rest of the round (no retry). The other player can still answer until the timer ends. The round closes on the first correct answer or when the timer ends. Typed single-line questions may return one hint: the engine passes that player's `hintsUsed` to `checkAnswer`, and a suggestion is not a submission. The cap is 1.
 
 ## Deferred
 
@@ -81,20 +81,7 @@ Leave these constants in `shared/` and do not implement them: comeback (`COMEBAC
 | `SPEED_BONUS_MAX` 0.5, `MISS_DAMAGE` 4, `ULT_STREAK` 3 in `shared/src/constants.ts` | Applied |
 | `rewrite_code` in `RACE_MODE_TYPES`, `MAX_ROUNDS` = 16 | Applied in their own commit. Needs review from B and C |
 | Round time from `getQuestionSeconds(question)` | Adopted |
-| `round:result` `damage` becomes `DamageEvent[]` so a double miss can hit both players | Pending. B and C |
+| `round:result` `damage` as `DamageEvent[]`, `answer:hint`, and `match:end` `reason` | Applied in one commit. Pending approval from B and C |
+| Hint cap is 1. The engine passes `hintsUsed` to `checkAnswer` | Applied |
 
-Pending diff (do not apply yet). In `shared/src/events.ts`, replace the single `damage` object on `RoundResultPayload` with:
-
-```ts
-export interface DamageEvent {
-  to: PlayerId;
-  amount: number;
-  attackSize: AttackSize;
-  /** Null when the hit is mutual miss damage. */
-  attacker: PlayerId | null;
-}
-
-damage: DamageEvent[];
-```
-
-One hitter is one element. A double miss is two elements with `attacker: null`. A safety-cap double miss, or an exact time tie, is `damage: []`. No other socket event changes. `shared/src/types.ts` is unchanged until that payload change is approved. Owner B's mock still builds the old single `damage` object, so applying this will break their typecheck until they update it.
+`DamageEvent` is `{ to, amount, attackSize, attacker }`. `attacker` is null on mutual miss damage. One hitter is one element. A double miss is two. A tie, or a safety-cap double miss, is `damage: []`. `answer:hint` is `{ matchId, round, suggestion }` and goes only to the player who typed the near-miss. `match:end` `reason` is `hp_zero`, `tiers_complete`, or `max_rounds`.
