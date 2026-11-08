@@ -27,5 +27,5 @@ npm run dev
 ```
 
 ## Integration points
-- A calls C: `getNextQuestion`, `toPublicQuestion`, `isCorrect`, `getTimerSeconds` (`server/src/questions/`).
-- B consumes A's events exactly as typed in `shared/src/events.ts` (use the mock server until A is ready).
+- A calls C through `server/src/matchQuestions.ts`: `getNextQuestion`, `toPublicQuestion`, `isCorrect`, `getQuestionSeconds`, and `checkAnswer`. `getTimerSeconds` is only the tier table.
+- B consumes A's events exactly as typed in `shared/src/events.ts`. `shared/src/` is the source of truth. The server is ready for two humans. The mock server is only for UI work with no server running. Step 9 (LinkedIn Connect) is postponed: do not build `connect:request` yet.

@@ -5,12 +5,8 @@ import express from 'express';
 import cors from 'cors';
 import http from 'node:http';
 import { Server } from 'socket.io';
-import {
-  CLIENT_EVENTS,
-  type ClientToServerEvents,
-  type ServerToClientEvents,
-} from '@beatcode/shared';
-import { joinQueue, leaveQueue } from './matchmaking';
+import type { ClientToServerEvents, ServerToClientEvents } from '@beatcode/shared';
+import { attachGame } from './gameServer';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
@@ -24,21 +20,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: CLIENT_ORIGIN },
 });
 
-io.on('connection', (socket) => {
-  console.log(`[socket] connected ${socket.id}`);
-
-  socket.on(CLIENT_EVENTS.QUEUE_JOIN, (payload) => joinQueue(io, socket, payload));
-
-  // TODO(OWNER A): route answer:submit to the player's Match.
-  socket.on(CLIENT_EVENTS.ANSWER_SUBMIT, () => {});
-
-  // TODO(OWNER A): handle connect requests (store pending, notify, mutual accept).
-  socket.on(CLIENT_EVENTS.CONNECT_REQUEST, () => {});
-
-  socket.on('disconnect', () => {
-    leaveQueue(socket.id);
-    console.log(`[socket] disconnected ${socket.id}`);
-  });
-});
+attachGame(io);
 
 httpServer.listen(PORT, () => console.log(`[server] listening on http://localhost:${PORT}`));

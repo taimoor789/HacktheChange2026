@@ -12,14 +12,21 @@ export const CLIENT_EVENTS = {
   QUEUE_JOIN: 'queue:join',
   ANSWER_SUBMIT: 'answer:submit',
   CONNECT_REQUEST: 'connect:request',
+  LOBBY_CREATE: 'lobby:create',
+  LOBBY_JOIN: 'lobby:join',
+  LOBBY_LEAVE: 'lobby:leave',
 } as const;
 
 export const SERVER_EVENTS = {
   MATCH_FOUND: 'match:found',
   ROUND_START: 'round:start',
   ROUND_RESULT: 'round:result',
+  ANSWER_HINT: 'answer:hint',
   ULTIMATE_READY: 'ultimate:ready',
   MATCH_END: 'match:end',
+  LOBBY_CREATED: 'lobby:created',
+  LOBBY_CLOSED: 'lobby:closed',
+  LOBBY_ERROR: 'lobby:error',
 } as const;
 
 // ---------- client -> server payloads ----------
@@ -43,6 +50,31 @@ export interface ConnectRequestPayload {
   matchId: string;
   /** The opponent the player wants to connect with. */
   targetPlayerId: PlayerId;
+}
+
+export interface LobbyCreatePayload {
+  displayName?: string;
+}
+
+export interface LobbyJoinPayload {
+  code: string;
+  displayName?: string;
+}
+
+export type LobbyClosedReason = 'expired' | 'host_left';
+
+export interface LobbyCreatedPayload {
+  code: string;
+}
+
+export interface LobbyClosedPayload {
+  reason: LobbyClosedReason;
+}
+
+export type LobbyErrorReason = 'not_found' | 'full' | 'expired' | 'busy' | 'rate_limited' | 'own_lobby';
+
+export interface LobbyErrorPayload {
+  reason: LobbyErrorReason;
 }
 
 // ---------- server -> client payloads ----------
@@ -71,17 +103,31 @@ export interface PlayerRoundOutcome {
   answerMs?: number;
 }
 
+export interface DamageEvent {
+  to: PlayerId;
+  amount: number;
+  attackSize: AttackSize;
+  /** Null when the hit is mutual miss damage. */
+  attacker: PlayerId | null;
+}
+
 export interface RoundResultPayload {
   matchId: string;
   round: number;
   questionId: string;
   outcomes: Record<PlayerId, PlayerRoundOutcome>;
-  /** Who got hit (null = nobody took damage). */
-  damage: { to: PlayerId | null; amount: number; attackSize: AttackSize; attacker: PlayerId | null };
+  /** One element per player who lost HP. Empty on a tie or a safety-cap double miss. */
+  damage: DamageEvent[];
   /** Authoritative state after the round: new HP, combo, ultimate charge for both. */
   players: Record<PlayerId, PlayerState>;
   /** Tier of the next round. */
   nextTier: number;
+}
+
+export interface AnswerHintPayload {
+  matchId: string;
+  round: number;
+  suggestion: string;
 }
 
 export interface UltimateReadyPayload {
@@ -101,11 +147,14 @@ export interface ReviewItem {
   answers: Record<PlayerId, { submitted: string | null; correct: boolean }>;
 }
 
+export type MatchEndReason = 'hp_zero' | 'tiers_complete' | 'max_rounds' | 'forfeit';
+
 export interface MatchEndPayload {
   matchId: string;
   winnerId: PlayerId | null;
   players: Record<PlayerId, PlayerState>;
   review: ReviewItem[];
+  reason: MatchEndReason;
 }
 
 // ---------- typed Socket.IO maps ----------
@@ -114,12 +163,19 @@ export interface ClientToServerEvents {
   [CLIENT_EVENTS.QUEUE_JOIN]: (p: QueueJoinPayload) => void;
   [CLIENT_EVENTS.ANSWER_SUBMIT]: (p: AnswerSubmitPayload) => void;
   [CLIENT_EVENTS.CONNECT_REQUEST]: (p: ConnectRequestPayload) => void;
+  [CLIENT_EVENTS.LOBBY_CREATE]: (p: LobbyCreatePayload) => void;
+  [CLIENT_EVENTS.LOBBY_JOIN]: (p: LobbyJoinPayload) => void;
+  [CLIENT_EVENTS.LOBBY_LEAVE]: () => void;
 }
 
 export interface ServerToClientEvents {
   [SERVER_EVENTS.MATCH_FOUND]: (p: MatchFoundPayload) => void;
   [SERVER_EVENTS.ROUND_START]: (p: RoundStartPayload) => void;
   [SERVER_EVENTS.ROUND_RESULT]: (p: RoundResultPayload) => void;
+  [SERVER_EVENTS.ANSWER_HINT]: (p: AnswerHintPayload) => void;
   [SERVER_EVENTS.ULTIMATE_READY]: (p: UltimateReadyPayload) => void;
   [SERVER_EVENTS.MATCH_END]: (p: MatchEndPayload) => void;
+  [SERVER_EVENTS.LOBBY_CREATED]: (p: LobbyCreatedPayload) => void;
+  [SERVER_EVENTS.LOBBY_CLOSED]: (p: LobbyClosedPayload) => void;
+  [SERVER_EVENTS.LOBBY_ERROR]: (p: LobbyErrorPayload) => void;
 }
