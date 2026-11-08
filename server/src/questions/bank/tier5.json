@@ -34,9 +34,9 @@
     "difficulty": 5,
     "concept": "hash maps",
     "prompt": "What does this print?",
-    "code": "counts = {}\nfor ch in \"aab\":\n    counts[ch] = counts.get(ch, 0) + 1\nprint(counts)",
-    "acceptedAnswers": ["{'a': 2, 'b': 1}"],
-    "explanation": "This is the classic frequency-count pattern: a appears twice and b once."
+    "code": "counts = {}\nfor ch in \"aab\":\n    counts[ch] = counts.get(ch, 0) + 1\nprint(counts[\"a\"])",
+    "acceptedAnswers": ["2"],
+    "explanation": "This is the classic frequency-count pattern: the letter a appears twice."
   },
   {
     "id": "t5-map-5",

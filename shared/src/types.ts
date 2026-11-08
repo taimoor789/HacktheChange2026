@@ -2,7 +2,13 @@
 
 // ---------- Questions (schema owned by C, read by A and B) ----------
 
-export type QuestionType = 'fill_blank' | 'name_concept' | 'output_prediction' | 'spot_the_bug';
+export type QuestionType =
+  | 'fill_blank'
+  | 'name_concept'
+  | 'output_prediction'
+  | 'spot_the_bug'
+  /** Heavy, multi-line: the player rewrites buggy code. Scored mode, not a race. */
+  | 'rewrite_code';
 
 export interface Question {
   id: string;
@@ -16,7 +22,12 @@ export interface Question {
   code?: string;
   /** Multiple-choice options. If present, answers may be the option text or its 0-based index. */
   options?: string[];
-  /** NEVER sent to the client during a round. */
+  /**
+   * Optional minimum time in seconds for this question. The round timer is
+   * max(tier timer, seconds), so long/hard questions keep a longer limit even at high tiers.
+   */
+  seconds?: number;
+  /** NEVER sent to the client during a round. For rewrite_code: each entry is a full accepted solution. */
   acceptedAnswers: string[];
   /** Shown in post-match review only. */
   explanation: string;

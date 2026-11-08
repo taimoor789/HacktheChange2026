@@ -8,10 +8,11 @@ Changing anything here needs **all three owners** (A, B, C) to agree.
 | Field | Meaning |
 |---|---|
 | `id` | unique string |
-| `type` | `fill_blank` \| `name_concept` \| `output_prediction` \| `spot_the_bug` |
+| `type` | `fill_blank` \| `name_concept` \| `output_prediction` \| `spot_the_bug` \| `rewrite_code` (multi-line, heavy) |
 | `difficulty` | tier number, 1..6 |
 | `concept` | e.g. `loops`, `recursion` (must exist in the ladder for that tier) |
 | `prompt`, `code?` | what the player sees |
+| `seconds?` | optional minimum time limit; round timer = max(tier timer, seconds) |
 | `options?` | multiple choice; answer may be option text or 0-based index |
 | `acceptedAnswers[]` | **never sent to the client** |
 | `explanation` | shown in post-match review only |

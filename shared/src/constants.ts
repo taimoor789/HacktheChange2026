@@ -61,3 +61,10 @@ export const MISS_DAMAGE = 4;
 
 /** Consecutive correct answers (combo) required to fire an ultimate on a round that player wins. */
 export const ULT_STREAK = 3;
+
+/**
+ * Owner C's question module only; the engine owns tier progression via ROUNDS_PER_TIER.
+ * Questions asked in each tier before moving up. A full climb is QUESTIONS_PER_TIER * MAX_TIER questions
+ * (tier 1, 2 questions, tier 2, 2 questions ... tier 6). Counted per tier, not by round number. TUNABLE.
+ */
+export const QUESTIONS_PER_TIER = 2;
