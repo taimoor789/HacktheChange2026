@@ -100,7 +100,8 @@ export function codeTokens(
   caseInsensitive = false,
   indentSensitive = false,
 ): string[] {
-  const fix = (t: string) => (caseInsensitive ? t.toLowerCase() : t);
+  // In Python and JavaScript 'x' and "x" mean the same thing; SQL keeps them apart.
+  const fix = (t: string) => (caseInsensitive ? t.toLowerCase() : t === "'" ? '"' : t);
   const lines = src
     .replace(/\r\n?/g, '\n')
     .split('\n')
@@ -194,6 +195,11 @@ export function codeMatch(
   knownNames: ReadonlySet<string> = new Set(),
 ): { ok: boolean; typos: ForgivenTypo[] } {
   const fail = { ok: false, typos: [] as ForgivenTypo[] };
+  // A one-line fix like "while (a <= b) {" may be typed without its opening brace.
+  if (reference[reference.length - 1] === '{') {
+    reference = reference.slice(0, -1);
+    if (typed[typed.length - 1] === '{') typed = typed.slice(0, -1);
+  }
   if (typed.length === 0 || typed.length !== reference.length) return fail;
   // names that are real in this problem: used in the solution OR shown in the question's code
   const vocabulary = new Set([...reference.filter((t) => IDENT_RE.test(t)), ...knownNames]);
