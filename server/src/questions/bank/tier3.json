@@ -1,0 +1,91 @@
+[
+  {
+    "id": "t3-func-1",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "Which keyword sends a value back to the caller?",
+    "code": "def add(a, b):\n    ___ a + b",
+    "acceptedAnswers": ["return"],
+    "explanation": "return ends the function and hands a value back to whoever called it."
+  },
+  {
+    "id": "t3-func-2",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "What does this print?",
+    "code": "def f(x):\n    return x * 2\n\nprint(f(f(3)))",
+    "acceptedAnswers": ["12"],
+    "explanation": "f(3) is 6, then f(6) is 12."
+  },
+  {
+    "id": "t3-func-3",
+    "type": "name_concept",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "What is the actual value you pass into a function when you call it, such as the 5 in square(5)?",
+    "options": ["parameter", "argument", "return value", "variable"],
+    "acceptedAnswers": ["argument"],
+    "explanation": "The name in the definition is a parameter; the value passed in a call is an argument."
+  },
+  {
+    "id": "t3-func-4",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "What does this print? (one value per line)",
+    "code": "def f():\n    print(\"a\")\n\nx = f()\nprint(x)",
+    "acceptedAnswers": ["a\nNone"],
+    "explanation": "f() prints a and returns nothing, so x is None, which is printed next."
+  },
+  {
+    "id": "t3-func-5",
+    "type": "spot_the_bug",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "square(4) prints None instead of 16. Which line number is the bug?",
+    "code": "def square(n):\n    n * n\n\nprint(square(4))",
+    "acceptedAnswers": ["2"],
+    "explanation": "Line 2 computes n * n but never returns it. It should be 'return n * n'."
+  },
+  {
+    "id": "t3-func-6",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "functions",
+    "prompt": "Which symbol gives the parameter a default value?",
+    "code": "def greet(name ___ \"friend\"):\n    print(\"hi\", name)",
+    "acceptedAnswers": ["="],
+    "explanation": "def greet(name=\"friend\") uses \"friend\" when the caller passes nothing."
+  },
+  {
+    "id": "t3-scope-1",
+    "type": "output_prediction",
+    "difficulty": 3,
+    "concept": "scope",
+    "prompt": "What does this print?",
+    "code": "x = 10\n\ndef f():\n    x = 5\n\nf()\nprint(x)",
+    "acceptedAnswers": ["10"],
+    "explanation": "Assigning x inside f creates a new local x. The global x is unchanged."
+  },
+  {
+    "id": "t3-scope-2",
+    "type": "fill_blank",
+    "difficulty": 3,
+    "concept": "scope",
+    "prompt": "Which keyword lets a function assign to the module-level variable count?",
+    "code": "count = 0\n\ndef inc():\n    ___ count\n    count += 1",
+    "acceptedAnswers": ["global"],
+    "explanation": "Without 'global count', count += 1 would try to use a local variable and fail."
+  },
+  {
+    "id": "t3-scope-3",
+    "type": "name_concept",
+    "difficulty": 3,
+    "concept": "scope",
+    "prompt": "What is a variable called when it exists only inside the function that created it?",
+    "acceptedAnswers": ["local", "local variable"],
+    "explanation": "A local variable is created when the function runs and disappears when it returns."
+  }
+]

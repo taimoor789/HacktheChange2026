@@ -19,6 +19,35 @@
     "explanation": "A variable is a named storage location whose value can change."
   },
   {
+    "id": "t1-var-3",
+    "type": "output_prediction",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "What does this print?",
+    "code": "x = 3\nx = x + 4\nprint(x)",
+    "acceptedAnswers": ["7"],
+    "explanation": "x starts at 3, then x + 4 = 7 is assigned back to x, so 7 is printed."
+  },
+  {
+    "id": "t1-var-4",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "What data type holds text such as \"hello\"?",
+    "acceptedAnswers": ["string", "str"],
+    "explanation": "Text is stored in a string (str in Python)."
+  },
+  {
+    "id": "t1-var-5",
+    "type": "fill_blank",
+    "difficulty": 1,
+    "concept": "variables",
+    "prompt": "Which built-in function converts the text \"42\" into the integer 42?",
+    "code": "n = ___(\"42\")",
+    "acceptedAnswers": ["int"],
+    "explanation": "int() converts a value, such as a numeric string, into an integer."
+  },
+  {
     "id": "t1-syn-1",
     "type": "output_prediction",
     "difficulty": 1,
@@ -46,5 +75,24 @@
     "prompt": "What symbol starts a single-line comment in Python?",
     "acceptedAnswers": ["#", "hash", "pound"],
     "explanation": "Everything after # on a line is ignored by the Python interpreter."
+  },
+  {
+    "id": "t1-syn-4",
+    "type": "output_prediction",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "What does this print?",
+    "code": "print(10 // 3)",
+    "acceptedAnswers": ["3"],
+    "explanation": "// is floor division: 10 divided by 3 is 3.33..., rounded down to 3."
+  },
+  {
+    "id": "t1-syn-5",
+    "type": "name_concept",
+    "difficulty": 1,
+    "concept": "syntax",
+    "prompt": "What is the error called when code breaks the language's grammar rules, like a missing colon?",
+    "acceptedAnswers": ["syntax error", "syntaxerror"],
+    "explanation": "A syntax error means the code is not valid for the language, so it never starts running."
   }
 ]

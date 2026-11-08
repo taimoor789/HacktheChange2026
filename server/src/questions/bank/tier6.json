@@ -1,0 +1,99 @@
+[
+  {
+    "id": "t6-time-1",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "What is the time complexity of binary search on a sorted array of n elements?",
+    "options": ["O(1)", "O(n)", "O(log n)", "O(n^2)"],
+    "acceptedAnswers": ["O(log n)"],
+    "explanation": "Each step halves the search range, so it takes about log2(n) steps."
+  },
+  {
+    "id": "t6-time-2",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "What is the time complexity of two nested loops that each run n times?",
+    "options": ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"],
+    "acceptedAnswers": ["O(n^2)"],
+    "explanation": "The inner loop runs n times for each of the n outer iterations: n * n = n^2."
+  },
+  {
+    "id": "t6-time-3",
+    "type": "output_prediction",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "What does this print?",
+    "code": "count = 0\nfor i in range(3):\n    for j in range(4):\n        count += 1\nprint(count)",
+    "acceptedAnswers": ["12"],
+    "explanation": "The inner body runs 4 times for each of 3 outer iterations: 3 * 4 = 12."
+  },
+  {
+    "id": "t6-time-4",
+    "type": "fill_blank",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "Good comparison-based sorts like merge sort run in O(n ___ n) time. Fill in the blank.",
+    "code": "O(n ___ n)",
+    "acceptedAnswers": ["log"],
+    "explanation": "Merge sort splits the list log n times and does O(n) work per level: O(n log n)."
+  },
+  {
+    "id": "t6-time-5",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "time complexity",
+    "prompt": "What is the amortized time complexity of appending to the end of a Python list?",
+    "options": ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+    "acceptedAnswers": ["O(1)"],
+    "explanation": "Occasional resizes cost O(n) but are rare, so the average cost per append is constant."
+  },
+  {
+    "id": "t6-tree-1",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "What is the topmost node of a tree called?",
+    "acceptedAnswers": ["root", "root node"],
+    "explanation": "The root is the only node with no parent; every other node descends from it."
+  },
+  {
+    "id": "t6-tree-2",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "Which traversal of a binary search tree visits the values in sorted order?",
+    "acceptedAnswers": ["in-order", "inorder", "in order"],
+    "explanation": "In-order visits left subtree, node, then right subtree, which yields ascending values for a BST."
+  },
+  {
+    "id": "t6-tree-3",
+    "type": "output_prediction",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "What does this print?",
+    "code": "class Node:\n    def __init__(self, v, l=None, r=None):\n        self.v, self.l, self.r = v, l, r\n\ndef height(n):\n    if n is None:\n        return 0\n    return 1 + max(height(n.l), height(n.r))\n\ntree = Node(1, Node(2, Node(4)), Node(3))\nprint(height(tree))",
+    "acceptedAnswers": ["3"],
+    "explanation": "The longest path is 1 -> 2 -> 4, which has 3 nodes, so the height is 3."
+  },
+  {
+    "id": "t6-tree-4",
+    "type": "spot_the_bug",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "This should return the values in in-order (left, node, right) but doesn't. Which line number is wrong?",
+    "code": "def inorder(n):\n    if n is None:\n        return []\n    return inorder(n.l) + inorder(n.r) + [n.v]",
+    "acceptedAnswers": ["4"],
+    "explanation": "Line 4 puts the node after both subtrees (post-order). In-order is inorder(n.l) + [n.v] + inorder(n.r)."
+  },
+  {
+    "id": "t6-tree-5",
+    "type": "name_concept",
+    "difficulty": 6,
+    "concept": "trees",
+    "prompt": "What is the maximum number of children a node in a binary tree can have?",
+    "acceptedAnswers": ["2", "two"],
+    "explanation": "\"Binary\" means each node has at most two children: left and right."
+  }
+]
