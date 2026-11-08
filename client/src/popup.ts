@@ -3,9 +3,11 @@
  * and blocked until the popup is closed (button, Esc, or clicking outside).
  *
  * Quick Match joins the server queue and opens the game on match:found.
- * Join Friend and Create Lobby have no server support yet.
+ * Join Friend and Create Lobby have no server support yet: Create Lobby is hidden and
+ * Join Friend only shows in dev builds, for the test codes (see select.ts).
  */
 
+import type { MockScenario } from './mock/mockServer';
 import { joinQueue } from './net/session';
 import { navigate } from './router';
 import { getPlayer } from './state';
@@ -13,10 +15,14 @@ import { getPlayer } from './state';
 export type PopupKind = 'quick' | 'join' | 'create' | 'quit';
 
 /**
- * TEST ONLY: entering this in JOIN FRIEND skips matchmaking and loads the
- * game page. Remove once real two-player matchmaking exists.
+ * TEST ONLY (dev builds): these codes in JOIN FRIEND play the scripted mock match alone.
+ * TODO(OWNER B): remove before launch.
  */
-export const TEST_GAME_CODE = 'TEST01';
+export const TEST_CODES: Record<string, MockScenario> = {
+  TEST01: 'full', // plays every question type; ends on time's up unless someone is knocked out
+  TEST02: 'knockout', // both start at 30 HP
+  TEST03: 'forfeit', // the opponent leaves after round 2
+};
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -132,12 +138,15 @@ export function openPopup(kind: PopupKind, host: HTMLElement, onClose?: () => vo
     });
     root.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (input.value === TEST_GAME_CODE) {
+      const scenario = import.meta.env.DEV ? TEST_CODES[input.value] : undefined;
+      if (scenario) {
+        if (leaveQueue) return;
         msg.textContent = 'TEST MATCH...';
-        navigate('/game');
+        leaveQueue = joinQueue(getPlayer(), () => navigate('/game'), scenario);
         return;
       }
-      msg.textContent = input.value.length < 6 ? 'CODE IS 6 CHARACTERS' : 'CONNECTING...';
+      // TODO(OWNER A): no lobby codes on the server yet.
+      msg.textContent = input.value.length < 6 ? 'CODE IS 6 CHARACTERS' : 'LOBBIES ARE NOT READY YET';
     });
   }
 

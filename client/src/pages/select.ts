@@ -80,6 +80,14 @@ export function createPage(): Page {
 
   let closePopup: (() => void) | null = null;
 
+  // TODO(OWNER A): the server has no lobbies yet. Create Lobby is hidden; Join Friend stays
+  // in dev builds only, because it takes the test codes (popup.ts TEST_CODES).
+  el.querySelector('.btn-slot--create')!.remove();
+  if (!import.meta.env.DEV) {
+    el.querySelector('.options__heading')!.remove();
+    el.querySelector('.btn-slot--join')!.remove();
+  }
+
   input.value = player.name;
 
   /* ---------- character carousel ---------- */
