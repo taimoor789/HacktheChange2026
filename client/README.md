@@ -24,7 +24,7 @@ Flow: Home → PLAY → Select Character → PLAY opens the options box → game
   - `TEST03`: forfeit. The opponent leaves after round 2.
 
   Remove them before launch (`TEST_CODES` in `src/popup.ts`).
-- Create Lobby is hidden, and Join Friend only shows in dev builds. The server has no lobbies yet.
+- Create Lobby shows a lobby code, but the server has no lobbies yet, so nobody can join it. Join Friend only shows in dev builds.
 
 ## Where things are
 
