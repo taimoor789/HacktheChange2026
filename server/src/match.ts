@@ -1,5 +1,6 @@
 // OWNER A: one match, round by round. No sockets and no waiting.
 // Players only receive the public question. answerMs comes from the player, not from a clock sleep.
+// play() returns the end reason: hp_zero, tiers_complete, or max_rounds.
 import type { PublicQuestion, Question } from '@beatcode/shared';
 import { MAX_ROUNDS, STARTING_HP } from '@beatcode/shared';
 import type { AnswerStatus, JudgedAnswer, MatchEnd, ResolvedPlayer, ResolveRoundResult } from './engine/resolveRound';

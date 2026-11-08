@@ -85,7 +85,7 @@ describe('resolveRound', () => {
     expect(result.ultimateFired).toBe(false);
   });
 
-  it('chips both players on a double miss before the final round', () => {
+  it('chips both players on a double miss before the safety cap', () => {
     const result = resolveRound(
       round({
         roundNumber: 4,
@@ -107,7 +107,7 @@ describe('resolveRound', () => {
     expect(result.matchEnd).toBeNull();
   });
 
-  it('deals no miss damage on the final round', () => {
+  it('deals no miss damage only on the safety-cap round', () => {
     const result = resolveRound(
       round({
         roundNumber: MAX_ROUNDS,
@@ -247,7 +247,7 @@ describe('resolveRound', () => {
     expect(result.matchEnd).toEqual({ winnerId: 'a', reason: 'hp_zero' });
   });
 
-  it('after the last round, awards the win to the higher HP', () => {
+  it('the safety cap awards the win to the higher HP', () => {
     const result = resolveRound(
       round({
         roundNumber: MAX_ROUNDS,
@@ -260,7 +260,7 @@ describe('resolveRound', () => {
     expect(result.matchEnd).toEqual({ winnerId: 'a', reason: 'max_rounds' });
   });
 
-  it('ends the last round as a draw when HP is equal', () => {
+  it('the safety cap is a draw when HP is equal', () => {
     const result = resolveRound(
       round({
         roundNumber: MAX_ROUNDS,
@@ -273,5 +273,94 @@ describe('resolveRound', () => {
     expect(result.players[0].hp).toBe(55);
     expect(result.players[1].hp).toBe(55);
     expect(result.matchEnd).toEqual({ winnerId: null, reason: 'max_rounds' });
+  });
+
+  it('ends the ladder with the higher HP winning', () => {
+    const target = MAX_TIER * ROUNDS_PER_TIER;
+    const result = resolveRound(
+      round({
+        roundNumber: 4,
+        roundsWithCorrect: target - 1,
+        matchTier: MAX_TIER,
+        players: [player('a', 40, 0, 'correct', 0), player('b', 30, 0, 'wrong', null)],
+      }),
+    );
+
+    expect(result.roundsWithCorrect).toBe(target);
+    expect(result.players[1].hp).toBeGreaterThan(0);
+    expect(result.matchEnd).toEqual({ winnerId: 'a', reason: 'tiers_complete' });
+  });
+
+  it('ends the ladder as a draw when HP is equal', () => {
+    const target = MAX_TIER * ROUNDS_PER_TIER;
+    const result = resolveRound(
+      round({
+        roundNumber: 4,
+        roundsWithCorrect: target - 1,
+        players: [player('a', 50, 0, 'correct', 2000), player('b', 50, 0, 'correct', 2000)],
+      }),
+    );
+
+    expect(result.damage).toEqual([]);
+    expect(result.players[0].hp).toBe(50);
+    expect(result.players[1].hp).toBe(50);
+    expect(result.matchEnd).toEqual({ winnerId: null, reason: 'tiers_complete' });
+  });
+
+  it('lets a KO beat tier completion in the same round', () => {
+    const target = MAX_TIER * ROUNDS_PER_TIER;
+    const result = resolveRound(
+      round({
+        roundNumber: 4,
+        roundsWithCorrect: target - 1,
+        players: [player('a', 40, 0, 'correct', 0), player('b', 5, 0, 'wrong', null)],
+      }),
+    );
+
+    expect(result.roundsWithCorrect).toBe(target);
+    expect(result.players[1].hp).toBe(0);
+    expect(result.matchEnd).toEqual({ winnerId: 'a', reason: 'hp_zero' });
+  });
+
+  it('still ends the match at the safety cap', () => {
+    const result = resolveRound(
+      round({
+        roundNumber: MAX_ROUNDS,
+        roundsWithCorrect: 1,
+        players: [player('a', 20, 0, 'wrong', null), player('b', 10, 0, 'timeout', null)],
+      }),
+    );
+
+    expect(result.roundsWithCorrect).toBe(1);
+    expect(result.matchEnd).toEqual({ winnerId: 'a', reason: 'max_rounds' });
+  });
+
+  it('still chips both players on a miss before the safety cap', () => {
+    expect(MAX_ROUNDS).toBeGreaterThan(12);
+    const result = resolveRound(
+      round({
+        roundNumber: MAX_ROUNDS - 1,
+        players: [player('a', 100, 0, 'wrong', null), player('b', 80, 0, 'timeout', null)],
+      }),
+    );
+
+    expect(result.damage).toEqual([
+      { to: 'a', amount: MISS_DAMAGE, attackSize: 'light', attacker: null },
+      { to: 'b', amount: MISS_DAMAGE, attackSize: 'light', attacker: null },
+    ]);
+    expect(result.matchEnd).toBeNull();
+  });
+
+  it('treats rewrite_code as a race', () => {
+    const result = resolveRound(
+      round({
+        questionType: 'rewrite_code',
+        players: [player('a', 100, 1, 'correct', 1000), player('b', 100, 4, 'correct', 5000)],
+      }),
+    );
+
+    expect(result.hitterId).toBe('a');
+    expect(result.players[0].combo).toBe(2);
+    expect(result.players[1].combo).toBe(4);
   });
 });

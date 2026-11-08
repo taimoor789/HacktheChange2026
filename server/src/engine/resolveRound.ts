@@ -60,7 +60,7 @@ export interface RoundDamage {
 
 export interface MatchEnd {
   winnerId: string | null;
-  reason: 'hp_zero' | 'max_rounds';
+  reason: 'hp_zero' | 'tiers_complete' | 'max_rounds';
 }
 
 export interface ResolveRoundResult {
@@ -96,7 +96,19 @@ function finishPlayer(player: RoundPlayerInput, hp: number, combo: number): Reso
   return { id: player.id, hp, combo, ultimateCharge: chargeFromStreak(combo) };
 }
 
-function matchEndFor(players: readonly [ResolvedPlayer, ResolvedPlayer], roundNumber: number): MatchEnd | null {
+const TIERS_COMPLETE_AT = MAX_TIER * ROUNDS_PER_TIER;
+
+function winnerByHp(players: readonly [ResolvedPlayer, ResolvedPlayer]): string | null {
+  const [a, b] = players;
+  if (a.hp === b.hp) return null;
+  return a.hp > b.hp ? a.id : b.id;
+}
+
+function matchEndFor(
+  players: readonly [ResolvedPlayer, ResolvedPlayer],
+  roundNumber: number,
+  roundsWithCorrect: number,
+): MatchEnd | null {
   const [a, b] = players;
   const aDown = a.hp <= 0;
   const bDown = b.hp <= 0;
@@ -104,9 +116,11 @@ function matchEndFor(players: readonly [ResolvedPlayer, ResolvedPlayer], roundNu
     const winnerId = aDown === bDown ? null : aDown ? b.id : a.id;
     return { winnerId, reason: 'hp_zero' };
   }
+  if (roundsWithCorrect >= TIERS_COMPLETE_AT) {
+    return { winnerId: winnerByHp(players), reason: 'tiers_complete' };
+  }
   if (roundNumber >= MAX_ROUNDS) {
-    const winnerId = a.hp === b.hp ? null : a.hp > b.hp ? a.id : b.id;
-    return { winnerId, reason: 'max_rounds' };
+    return { winnerId: winnerByHp(players), reason: 'max_rounds' };
   }
   return null;
 }
@@ -159,6 +173,7 @@ export function resolveRound(input: ResolveRoundInput): ResolveRoundResult {
     hps[defenderSide] = hit.hp;
     damage = [{ to: defender.id, amount: hit.lost, attackSize, attacker: hitter.id }];
   } else if (!tie && input.roundNumber < MAX_ROUNDS) {
+    // Miss damage is skipped only on the safety-cap round, not when the ladder finishes.
     damage = input.players.map((player, index) => {
       const chip = applyMissDamage(player.hp);
       hps[index as Side] = chip.hp;
@@ -183,6 +198,6 @@ export function resolveRound(input: ResolveRoundInput): ResolveRoundResult {
     ultimateFired,
     nextTier,
     roundsWithCorrect,
-    matchEnd: matchEndFor(players, input.roundNumber),
+    matchEnd: matchEndFor(players, input.roundNumber, roundsWithCorrect),
   };
 }

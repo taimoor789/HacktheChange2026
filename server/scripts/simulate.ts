@@ -1,4 +1,5 @@
 // Plays one match between two scripted players. No sockets, no real waiting.
+// The last line prints the end reason: hp_zero, tiers_complete, or max_rounds.
 // Run: npm run simulate -w server
 import type { ResolveRoundResult } from '../src/engine/resolveRound';
 import { Match, type MatchPlayer } from '../src/match';
@@ -16,13 +17,17 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function scripted(id: string, accuracy: number, fast: number, slow: number, rng: () => number): MatchPlayer {
+let calls = 0;
+
+/** Players trade correct answers near the deadline, so neither builds an ultimate or gets knocked out. */
+function scripted(id: string, answersEvenRounds: boolean): MatchPlayer {
   return {
     id,
     respond(question, durationMs) {
-      const correct = rng() < accuracy;
-      const answerMs = Math.floor(durationMs * (fast + rng() * (slow - fast)));
-      return { answer: correct ? correctAnswerFor(question.id) : '___wrong___', answerMs };
+      const roundIndex = Math.floor(calls++ / 2);
+      const mine = answersEvenRounds ? roundIndex % 2 === 0 : roundIndex % 2 === 1;
+      const answerMs = Math.floor(durationMs * 0.9);
+      return { answer: mine ? correctAnswerFor(question.id) : '___wrong___', answerMs };
     },
   };
 }
@@ -37,12 +42,12 @@ function hits(result: ResolveRoundResult): string {
 const rng = mulberry32(SEED);
 const match = new Match({
   rng,
-  players: [scripted('p1', 0.7, 0.08, 0.35, rng), scripted('p2', 0.5, 0.45, 0.9, rng)],
+  players: [scripted('p1', true), scripted('p2', false)],
 });
 
 const outcome = await match.play();
 
-console.log('Seed 2026. p1 is correct about 70% of the time and fast. p2 is correct about 50% and slower.');
+console.log('Seed 2026. The players trade correct answers near the deadline, so the ladder can finish.');
 for (const round of outcome.history) {
   const [a, b] = round.answers;
   const [pa, pb] = round.result.players;
