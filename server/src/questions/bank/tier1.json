@@ -42,7 +42,7 @@
     "type": "fill_blank",
     "difficulty": 1,
     "concept": "variables",
-    "prompt": "Which built-in function converts the text \"42\" into the integer 42?",
+    "prompt": "Which built-in function converts the text \"42\" to a whole number?",
     "code": "n = ___(\"42\")",
     "acceptedAnswers": ["int"],
     "explanation": "int() converts a value, such as a numeric string, into an integer."
@@ -62,7 +62,7 @@
     "type": "fill_blank",
     "difficulty": 1,
     "concept": "syntax",
-    "prompt": "Which keyword defines a function in Python?",
+    "prompt": "Which keyword begins the first line of a Python function?",
     "code": "___ greet():\n    print('hi')",
     "acceptedAnswers": ["def"],
     "explanation": "Python functions are defined with the def keyword."

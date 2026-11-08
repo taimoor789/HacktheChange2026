@@ -83,7 +83,7 @@
     "type": "fill_blank",
     "difficulty": 4,
     "concept": "strings",
-    "prompt": "Which string method returns the text in uppercase?",
+    "prompt": "Which string method returns a copy of the text with every letter in capitals?",
     "code": "word = \"hello\"\nprint(word.___())",
     "acceptedAnswers": ["upper"],
     "explanation": "str.upper() returns a new uppercase copy: HELLO."

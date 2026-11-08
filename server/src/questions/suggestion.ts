@@ -77,12 +77,16 @@ export function suggestAnswer(question: Question, submitted: string): string | n
 
 /**
  * correct / suggest / wrong, in one call.
- * 'correct' exactly when isCorrect is true. `hintsUsed` = hints already given to THIS player for THIS question;
+ * 'correct' exactly when isCorrect is true. `hintsUsed` is REQUIRED: hints already given to THIS player for THIS question;
  * once it reaches MAX_SUGGESTIONS_PER_QUESTION a near-miss is plain 'wrong'. Never 'suggest' for rewrite_code.
  */
-export function checkAnswer(question: Question, submitted: string, hintsUsed = 0): AnswerCheck {
+export function checkAnswer(question: Question, submitted: string, hintsUsed: number): AnswerCheck {
   if (isCorrect(question, submitted)) return { status: 'correct' };
-  if (hintsUsed >= MAX_SUGGESTIONS_PER_QUESTION) return { status: 'wrong' };
+  // hintsUsed is required. If a caller still passes something unusable (undefined, NaN, negative, 1.5), fail
+  // closed: no hint, so a forgotten argument can never silently disable the cap.
+  if (!Number.isInteger(hintsUsed) || hintsUsed < 0 || hintsUsed >= MAX_SUGGESTIONS_PER_QUESTION) {
+    return { status: 'wrong' };
+  }
   const suggestion = suggestAnswer(question, submitted);
   return suggestion === null ? { status: 'wrong' } : { status: 'suggest', suggestion };
 }

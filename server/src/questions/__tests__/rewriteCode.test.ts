@@ -5,10 +5,11 @@ import {
   forgivenTypos,
   hasSignificantIndentation,
   isCorrect,
+  isPluralFlip,
   matchesCode,
 } from '../answerMatching';
 import { checkAnswer, suggestAnswer } from '../suggestion';
-import { getQuestionSeconds, getTimerSeconds } from '../ladder';
+import { getQuestionSeconds, getTimerSeconds, MAX_QUESTION_SECONDS } from '../ladder';
 import { getNextQuestion } from '../selector';
 import { loadBank, loadBankReport } from '../schema';
 
@@ -134,7 +135,7 @@ describe('no suggestions for rewrite_code', () => {
   it('never returns a Did-you-mean for code questions', () => {
     for (const q of rewrites()) {
       expect(suggestAnswer(q, q.acceptedAnswers[0].slice(0, -3)), q.id).toBeNull();
-      expect(checkAnswer(q, 'nonsense').status).toBe('wrong');
+      expect(checkAnswer(q, 'nonsense', 0).status).toBe('wrong');
     }
   });
 });
@@ -183,7 +184,7 @@ describe('validation of rewrite_code', () => {
   it('rejects options, empty answers and bad seconds', () => {
     expect(errorsFor({ options: ['a', 'b'] })).toMatch(/cannot have options/);
     expect(errorsFor({ acceptedAnswers: [';'] })).toMatch(/no code/);
-    expect(errorsFor({ seconds: 999 })).toMatch(/between 5 and 300/);
+    expect(errorsFor({ seconds: 999 })).toMatch(/between 5 and 60/);
   });
 });
 
@@ -306,5 +307,127 @@ describe('forgivenTypos (post-match review)', () => {
   it('is null for question types other than rewrite_code', () => {
     const fb = loadBank().find((x) => x.type === 'fill_blank')!;
     expect(forgivenTypos(fb, fb.acceptedAnswers[0])).toBeNull();
+  });
+});
+
+describe('real names are never forgiven as typos', () => {
+  const rw = (id: string) => rewrites().find((q) => q.id === id)!;
+  const synthetic = (code: string, answer: string): Question => ({
+    id: 'syn',
+    type: 'rewrite_code',
+    difficulty: 3,
+    concept: 'functions',
+    prompt: 'p',
+    code,
+    seconds: 45,
+    acceptedAnswers: [answer],
+    explanation: 'e',
+  });
+
+  it('rejects item for items (singular/plural flip) in the real t4-rw-1 question', () => {
+    const q = rw('t4-rw-1');
+    const answer = q.acceptedAnswers[0];
+    expect(answer).toContain('items');
+    expect(isCorrect(q, answer.replace(/items/g, 'item'))).toBe(false); // every occurrence
+    expect(isCorrect(q, answer.replace('items', 'item'))).toBe(false); // just one occurrence
+    expect(isCorrect(q, answer)).toBe(true);
+  });
+
+  it('(a) treats a name shown in the question code as real, even if the solution does not use it', () => {
+    const answer = 'def f(a, limit):\n    return limit';
+    const withDecoy = synthetic('def f(a, limix, limit):\n    return a', answer);
+    const withoutDecoy = synthetic('def f(a, limit):\n    return a', answer);
+    const typed = 'def f(a, limit):\n    return limix'; // limix is one letter from limit
+    expect(isCorrect(withDecoy, typed)).toBe(false); // limix is a real name in the shown code
+    expect(isCorrect(withoutDecoy, typed)).toBe(true); // otherwise it is just a typo
+    // a genuine typo of the right name is still forgiven when the decoy exists
+    expect(isCorrect(withDecoy, 'def f(a, limit):\n    return limitt')).toBe(true);
+    expect(isCorrect(withDecoy, answer)).toBe(true);
+  });
+
+  it('(b) rejects singular/plural flips in both directions and with any case', () => {
+    for (const [typed, expected] of [
+      ['item', 'items'],
+      ['items', 'item'],
+      ['box', 'boxes'],
+      ['queries', 'query'],
+      ['Items', 'item'],
+    ]) {
+      expect(isPluralFlip(typed, expected), `${typed}/${expected}`).toBe(true);
+    }
+    for (const [typed, expected] of [
+      ['functio', 'function'],
+      ['retrun', 'return'],
+      ['lenght', 'length'],
+      ['limix', 'limit'],
+    ]) {
+      expect(isPluralFlip(typed, expected), `${typed}/${expected}`).toBe(false);
+    }
+    expect(matchesCode(codeTokens('for item in x'), codeTokens('for items in x'))).toBe(false);
+    expect(matchesCode(codeTokens('for items in y'), codeTokens('for item in y'))).toBe(false);
+  });
+
+  it('still forgives function -> functio and other ordinary typos', () => {
+    expect(
+      matchesCode(
+        codeTokens('functio f(a) { return a }'),
+        codeTokens('function f(a) { return a }'),
+      ),
+    ).toBe(true);
+    const q = rw('t4-rw-2'); // JavaScript: function sumTo(nums) { ... }
+    const typed = q.acceptedAnswers[0].replace('function sumTo', 'functio sumTo');
+    expect(isCorrect(q, typed)).toBe(true);
+    expect(forgivenTypos(q, typed)).toEqual([{ typed: 'functio', expected: 'function' }]);
+    expect(isCorrect(q, q.acceptedAnswers[0].replace('return total', 'retrun total'))).toBe(true);
+  });
+});
+
+describe('rewrite_code round length is capped at 60 seconds (agreed with Owner A)', () => {
+  it('MAX_QUESTION_SECONDS is 60 and caps any question', () => {
+    expect(MAX_QUESTION_SECONDS).toBe(60);
+    expect(getQuestionSeconds({ difficulty: 6, seconds: 300 })).toBe(60);
+    expect(getQuestionSeconds({ difficulty: 6, seconds: 120 })).toBe(60);
+    expect(getQuestionSeconds({ difficulty: 1 })).toBe(getTimerSeconds(1)); // normal questions are not affected
+    expect(getQuestionSeconds({ difficulty: 6, seconds: 45 })).toBe(45);
+  });
+
+  it('no question in the bank has a round longer than 60 seconds', () => {
+    for (const q of loadBank()) {
+      expect(getQuestionSeconds(q), q.id).toBeLessThanOrEqual(60);
+      expect(q.seconds ?? 0, q.id).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it('is still longer than the tier timer, so the heavy question is not squeezed', () => {
+    for (const q of rewrites())
+      expect(getQuestionSeconds(q), q.id).toBeGreaterThan(getTimerSeconds(q.difficulty));
+  });
+
+  it('the shortest accepted answer can be typed in the time given (about 3 characters per second, 15 seconds to think)', () => {
+    for (const q of rewrites()) {
+      const shortest = Math.min(...q.acceptedAnswers.map((a) => a.length));
+      const budget = (getQuestionSeconds(q) - 15) * 3;
+      expect(
+        shortest,
+        `${q.id}: ${shortest} chars in ${getQuestionSeconds(q)}s`,
+      ).toBeLessThanOrEqual(budget);
+    }
+  });
+
+  it('the validator rejects a time limit above 60', () => {
+    const q = {
+      id: 'rw-1',
+      type: 'rewrite_code',
+      difficulty: 3,
+      concept: 'functions',
+      prompt: 'p',
+      code: 'def f():\n    return 1',
+      explanation: 'e',
+      acceptedAnswers: ['def f():\n    return 2'],
+    };
+    expect(loadBankReport({ 'tier3.json': [{ ...q, seconds: 61 }] }).errors.join('\n')).toMatch(
+      /between 5 and 60/,
+    );
+    expect(loadBankReport({ 'tier3.json': [{ ...q, seconds: 60 }] }).errors).toEqual([]);
   });
 });

@@ -8,7 +8,9 @@
 //                               output may also be typed on one line separated by spaces ("1 2 3").
 //   spot_the_bug              : answer is a 1-based line number of `code` ("3" or "line 3").
 //   rewrite_code              : multi-line. Compared as code tokens. Full-line comments and ";" are ignored.
-//                               Small spelling mistakes in names/keywords are forgiven (see matchesCode); any other
+//                               Small spelling mistakes in names/keywords are forgiven (see matchesCode), but never a real
+//                               name (any name in the solution or in the question's shown code) and never a singular/plural
+//                               flip (item/items); any other
 //                               difference (operators, numbers, missing or extra tokens) is wrong.
 //                               SQL is case-insensitive; other languages are case-sensitive.
 //                               PYTHON: line breaks and indentation LEVELS are significant (they change the meaning).
@@ -147,8 +149,35 @@ export function codeTokens(
  * distinct names/keywords that are one small spelling slip away from the reference token. A typed name that is
  * itself a different name used in the reference (item vs items) is a real mistake, not a typo.
  */
-export function matchesCode(typed: string[], reference: string[]): boolean {
-  return codeMatch(typed, reference).ok;
+export function matchesCode(
+  typed: string[],
+  reference: string[],
+  knownNames: ReadonlySet<string> = new Set(),
+): boolean {
+  return codeMatch(typed, reference, knownNames).ok;
+}
+
+/** True for singular/plural flips (item/items, box/boxes, query/queries): a different name, not a typo. */
+export function isPluralFlip(a: string, b: string): boolean {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  const longer = (short: string, long: string) =>
+    long === short + 's' ||
+    long === short + 'es' ||
+    (long.endsWith('ies') && short === long.slice(0, -3) + 'y');
+  return longer(x, y) || longer(y, x);
+}
+
+/** Every name (identifier) used in the code the question shows the player. */
+function shownNames(
+  question: Question,
+  caseInsensitive: boolean,
+  indentSensitive: boolean,
+): Set<string> {
+  const names = codeTokens(question.code ?? '', caseInsensitive, indentSensitive).filter((t) =>
+    IDENT_RE.test(t),
+  );
+  return new Set(names);
 }
 
 export interface ForgivenTypo {
@@ -162,10 +191,12 @@ export interface ForgivenTypo {
 export function codeMatch(
   typed: string[],
   reference: string[],
+  knownNames: ReadonlySet<string> = new Set(),
 ): { ok: boolean; typos: ForgivenTypo[] } {
   const fail = { ok: false, typos: [] as ForgivenTypo[] };
   if (typed.length === 0 || typed.length !== reference.length) return fail;
-  const vocabulary = new Set(reference.filter((t) => IDENT_RE.test(t)));
+  // names that are real in this problem: used in the solution OR shown in the question's code
+  const vocabulary = new Set([...reference.filter((t) => IDENT_RE.test(t)), ...knownNames]);
   const typos = new Map<string, ForgivenTypo>(); // distinct misspellings: the same slip used twice counts once
   for (let i = 0; i < typed.length; i++) {
     const a = typed[i];
@@ -176,6 +207,7 @@ export function codeMatch(
       IDENT_RE.test(b) &&
       Math.min(a.length, b.length) >= 4 &&
       !vocabulary.has(a) &&
+      !isPluralFlip(a, b) &&
       editDistance(a, b) <= (Math.max(a.length, b.length) >= 9 ? 2 : 1);
     if (!near) return fail;
     typos.set(`${a}>${b}`, { typed: a, expected: b });
@@ -194,9 +226,10 @@ export function forgivenTypos(question: Question, submitted: string): ForgivenTy
   const ci = question.concept.startsWith('sql');
   const ind = hasSignificantIndentation(question);
   const typed = codeTokens(submitted, ci, ind);
+  const known = shownNames(question, ci, ind);
   let best: ForgivenTypo[] | null = null;
   for (const answer of question.acceptedAnswers) {
-    const result = codeMatch(typed, codeTokens(answer, ci, ind));
+    const result = codeMatch(typed, codeTokens(answer, ci, ind), known);
     if (result.ok && (best === null || result.typos.length < best.length)) best = result.typos;
   }
   return best;
@@ -234,7 +267,10 @@ export function isCorrect(question: Question, submitted: string): boolean {
       const ci = question.concept.startsWith('sql');
       const ind = hasSignificantIndentation(question);
       const typed = codeTokens(submitted, ci, ind);
-      return question.acceptedAnswers.some((a) => matchesCode(typed, codeTokens(a, ci, ind)));
+      const known = shownNames(question, ci, ind);
+      return question.acceptedAnswers.some((a) =>
+        matchesCode(typed, codeTokens(a, ci, ind), known),
+      );
     }
     default:
       return false;
