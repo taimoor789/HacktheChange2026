@@ -87,6 +87,57 @@ describe('two human players over sockets', () => {
     }
   });
 
+  it('ends a race round as soon as both players have answered wrong, without waiting for the deadline', async () => {
+    const question = hintQuestion(); // name_concept: a race type
+    httpServer = http.createServer();
+    ioServer = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
+    attachGame(ioServer, {
+      clock: { now: () => 1_700_000_000_000 },
+      pacing: { matchStartMs: 0, roundGapMs: 0, roundGapUltimateMs: 0, matchEndMs: 0 },
+      chooseQuestion: () => question,
+      // Only zero-delay jobs run. The round deadline never fires, so a result must come early.
+      schedule: (fn, ms) => {
+        if (ms > 0) return () => {};
+        const timer = setTimeout(fn, 0);
+        const cancel = () => clearTimeout(timer);
+        closers.push(cancel);
+        return cancel;
+      },
+    });
+    await new Promise<void>((resolve) => httpServer?.listen(0, '127.0.0.1', () => resolve()));
+    const url = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+    const a = connect(url, { transports: ['websocket'], forceNew: true });
+    const b = connect(url, { transports: ['websocket'], forceNew: true });
+    sockets.push(a, b);
+    const starts = new Box<RoundStartPayload>();
+    const results = new Box<RoundResultPayload>();
+    a.on(SERVER_EVENTS.ROUND_START, (payload) => starts.push(payload));
+    a.on(SERVER_EVENTS.ROUND_RESULT, (payload) => results.push(payload));
+    await Promise.all([
+      new Promise<void>((resolve) => a.on('connect', () => resolve())),
+      new Promise<void>((resolve) => b.on('connect', () => resolve())),
+    ]);
+    a.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: 'Ada', characterId: 'ada' });
+    b.emit(CLIENT_EVENTS.QUEUE_JOIN, { name: 'Bea', characterId: 'bea' });
+    const start = await starts.next();
+    for (const socket of [a, b]) {
+      socket.emit(CLIENT_EVENTS.ANSWER_SUBMIT, {
+        matchId: start.matchId,
+        round: start.round,
+        questionId: question.id,
+        answer: 'zzzz definitely not it',
+      });
+    }
+
+    const result = await results.next();
+    expect(result.round).toBe(start.round);
+    const outcomes = Object.values(result.outcomes);
+    expect(outcomes).toHaveLength(2);
+    expect(outcomes.every((outcome) => outcome.answered && !outcome.correct)).toBe(true);
+    expect(result.damage).toHaveLength(2);
+    expect(result.damage.every((hit) => hit.attacker === null)).toBe(true);
+  });
+
   it('pairs two players, hints once, locks a wrong answer, and ends with a reason', async () => {
     const question = hintQuestion();
     const [firstMiss, secondMiss] = nearMisses(question);

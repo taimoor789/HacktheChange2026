@@ -291,9 +291,11 @@ export class Match {
   }
 
   private shouldClose(live: LiveSlotRound): boolean {
+    // Both players have a counted answer: nobody can answer again (a wrong answer locks you out),
+    // so there is nothing left to wait for. This holds for every type, including two wrong race answers.
+    if (live.slots.every((slot) => slot.counted)) return true;
     const race = (RACE_MODE_TYPES as readonly QuestionType[]).includes(live.question.type);
-    if (race) return live.slots.some((slot) => slot.status === 'correct');
-    return live.slots.every((slot) => slot.counted);
+    return race && live.slots.some((slot) => slot.status === 'correct');
   }
 
   private settle(mode: 'early' | 'deadline'): ResolveRoundResult {
