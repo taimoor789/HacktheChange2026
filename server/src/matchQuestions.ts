@@ -1,12 +1,10 @@
 // OWNER A: the only file that imports server/src/questions/.
-// Working tree calls:
-//   getNextQuestion({ tier, usedIds }, rng), toPublicQuestion(q),
-//   isCorrect(q, submitted), getTimerSeconds(tier) in seconds.
-// Owner C's branch (not merged here) adds optional recentIds, getQuestionSeconds(question),
-// and completeQuestion. Switch those on in this file only, when they land.
-import type { PublicQuestion, Question } from '@beatcode/shared';
+// Uses getNextQuestion, toPublicQuestion, isCorrect, and getQuestionSeconds.
+// isCorrect is the only judge and returns a boolean. checkAnswer suggestions are not scored.
+// Tier progression stays in the engine (ROUNDS_PER_TIER). Do not call completeQuestion.
+import type { PublicQuestion, Question, QuestionType } from '@beatcode/shared';
 import { isCorrect } from './questions/answerMatching';
-import { getTimerSeconds } from './questions/ladder';
+import { getQuestionSeconds } from './questions/ladder';
 import { loadBank } from './questions/schema';
 import { getNextQuestion, toPublicQuestion } from './questions/selector';
 
@@ -18,8 +16,14 @@ function bank(): Question[] {
 }
 
 /** One shared question for the round, chosen at the match tier. */
-export function nextQuestion(tier: number, usedIds: string[], rng: () => number = Math.random): Question {
-  return getNextQuestion({ tier, usedIds }, rng);
+export function nextQuestion(
+  tier: number,
+  usedIds: string[],
+  rng: () => number = Math.random,
+  recentIds: string[] = [],
+  preferredType?: QuestionType,
+): Question {
+  return getNextQuestion({ tier, usedIds, recentIds, preferredType }, rng);
 }
 
 /** What a player is allowed to see. No accepted answers, no explanation. */
@@ -31,9 +35,9 @@ export function answerIsCorrect(question: Question, submitted: string): boolean 
   return isCorrect(question, submitted);
 }
 
-/** Round length in milliseconds, from the tier timer table. */
-export function roundDurationMs(matchTier: number): number {
-  return getTimerSeconds(matchTier) * 1000;
+/** Round length in milliseconds. Long questions keep their own `seconds` floor. */
+export function roundDurationMs(question: Question): number {
+  return getQuestionSeconds(question) * 1000;
 }
 
 /**

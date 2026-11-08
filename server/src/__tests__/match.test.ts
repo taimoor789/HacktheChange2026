@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_ROUNDS } from '@beatcode/shared';
 import { Match, type Clock, type MatchOutcome, type MatchPlayer, type PlayerTurn } from '../match';
-import { correctAnswerFor } from '../matchQuestions';
+import { answerIsCorrect, correctAnswerFor, nextQuestion, publicQuestion } from '../matchQuestions';
 
 function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
@@ -131,5 +131,25 @@ describe('Match', () => {
     );
     expect(outcome.history.every((round) => round.startedAtMs === 0)).toBe(true);
     expect(new Set(outcome.history.map((round) => round.question.id)).size).toBe(outcome.history.length);
+  });
+
+  it('hides rewrite_code answers and scores them only with isCorrect', () => {
+    const seen: string[] = [];
+    let question = nextQuestion(3, seen, () => 0, seen);
+    for (let i = 0; i < 40 && question.type !== 'rewrite_code'; i++) {
+      seen.push(question.id);
+      question = nextQuestion(3, seen, () => 0, seen, 'rewrite_code');
+    }
+    expect(question.type).toBe('rewrite_code');
+
+    const shown = publicQuestion(question);
+    expect(shown).not.toHaveProperty('acceptedAnswers');
+    expect(shown).not.toHaveProperty('explanation');
+    expect(shown.type).toBe('rewrite_code');
+
+    const answer = correctAnswerFor(question.id);
+    expect(answer).toBeTruthy();
+    expect(answerIsCorrect(question, answer!)).toBe(true);
+    expect(answerIsCorrect(question, 'not the function')).toBe(false);
   });
 });

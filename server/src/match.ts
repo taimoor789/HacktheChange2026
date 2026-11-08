@@ -125,9 +125,10 @@ export class Match {
 
   private async playRound(): Promise<MatchEnd | null> {
     const matchTier = this.tier;
-    const question = nextQuestion(matchTier, this.usedIds, this.rng);
+    const recentIds = this.usedIds.slice(-5);
+    const question = nextQuestion(matchTier, this.usedIds, this.rng, recentIds);
     const shown = publicQuestion(question);
-    const durationMs = roundDurationMs(matchTier);
+    const durationMs = roundDurationMs(question);
     const startedAtMs = this.clock.now();
 
     const turns: [PlayerTurn, PlayerTurn] = [
