@@ -3,6 +3,11 @@
 import type { Server, Socket } from 'socket.io';
 import {
   CLIENT_EVENTS,
+  LOBBY_TTL_MS,
+  MATCH_END_DELAY_MS,
+  MATCH_START_DELAY_MS,
+  ROUND_GAP_MS,
+  ROUND_GAP_ULTIMATE_MS,
   SERVER_EVENTS,
   STARTING_HP,
   type AnswerSubmitPayload,
@@ -25,6 +30,14 @@ import type { ResolveRoundResult } from './engine/resolveRound';
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+export interface Pacing {
+  matchStartMs: number;
+  roundGapMs: number;
+  roundGapUltimateMs: number;
+  matchEndMs: number;
+  lobbyTtlMs: number;
+}
+
 export interface GameServerOptions {
   clock?: Clock;
   /** Returns a cancel function. Defaults to setTimeout. */
@@ -32,6 +45,32 @@ export interface GameServerOptions {
   rng?: () => number;
   preferredType?: QuestionType;
   chooseQuestion?: (tier: number, usedIds: readonly string[], rng: () => number) => Question;
+  /** Overrides the shared delays. Missing fields fall back to env, then the shared constants. */
+  pacing?: Partial<Pacing>;
+}
+
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return fallback;
+  return value;
+}
+
+function resolvePacing(override?: Partial<Pacing>): Pacing {
+  const pacing: Pacing = {
+    matchStartMs: envMs('MATCH_START_DELAY_MS', MATCH_START_DELAY_MS),
+    roundGapMs: envMs('ROUND_GAP_MS', ROUND_GAP_MS),
+    roundGapUltimateMs: envMs('ROUND_GAP_ULTIMATE_MS', ROUND_GAP_ULTIMATE_MS),
+    matchEndMs: envMs('MATCH_END_DELAY_MS', MATCH_END_DELAY_MS),
+    lobbyTtlMs: envMs('LOBBY_TTL_MS', LOBBY_TTL_MS),
+  };
+  if (!override) return pacing;
+  for (const key of Object.keys(override) as (keyof Pacing)[]) {
+    const value = override[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) pacing[key] = value;
+  }
+  return pacing;
 }
 
 interface Waiting {
@@ -74,6 +113,7 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
 export function attachGame(io: IO, options: GameServerOptions = {}): void {
   const clock = options.clock ?? { now: () => Date.now() };
   const schedule = options.schedule ?? defaultSchedule;
+  const pacing = resolvePacing(options.pacing);
   const waiting: Waiting[] = [];
   const rooms = new Map<string, Room>();
   let matchSeq = 1;
@@ -182,16 +222,18 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       nextTier: result.nextTier,
     });
     if (result.matchEnd) {
-      endMatch(room, {
+      const payload: MatchEndPayload = {
         matchId: room.matchId,
         winnerId: result.matchEnd.winnerId,
         players: playersOf(room),
         review: reviewOf(room),
         reason: result.matchEnd.reason,
-      });
+      };
+      arm(room, () => endMatch(room, payload), pacing.matchEndMs);
       return;
     }
-    startRound(room);
+    const gap = result.ultimateFired ? pacing.roundGapUltimateMs : pacing.roundGapMs;
+    startRound(room, gap);
   };
 
   const openLiveRound = (room: Room) => {
@@ -215,9 +257,9 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
     }, open.durationMs);
   };
 
-  const startRound = (room: Room) => {
+  const startRound = (room: Room, delayMs: number) => {
     if (room.ended) return;
-    arm(room, () => openLiveRound(room), 0);
+    arm(room, () => openLiveRound(room), delayMs);
   };
 
   const openRoom = (first: Waiting, second: Waiting) => {
@@ -262,7 +304,7 @@ export function attachGame(io: IO, options: GameServerOptions = {}): void {
       you: playerState(room, second.socket.id),
       opponent: playerState(room, first.socket.id),
     });
-    startRound(room);
+    startRound(room, pacing.matchStartMs);
   };
 
   const onSubmit = (socket: Sock, payload: AnswerSubmitPayload) => {

@@ -97,6 +97,7 @@ describe('two human players over sockets', () => {
     ioServer = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
     attachGame(ioServer, {
       clock: { now: () => 1_700_000_000_000 },
+      pacing: { matchStartMs: 0, roundGapMs: 0, roundGapUltimateMs: 0, matchEndMs: 0 },
       chooseQuestion: () => question,
       schedule: (fn, ms) => {
         const timer = setTimeout(fn, ms);
