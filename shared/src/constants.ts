@@ -39,9 +39,32 @@ export const RACE_MODE_TYPES: readonly QuestionType[] = [
   'fill_blank',
   'name_concept',
   'output_prediction',
+  'rewrite_code',
 ];
 
+/** Default: advance one tier every N rounds where at least one player answered correctly. TUNABLE. */
+export const ROUNDS_PER_TIER = 2;
+
+/** Hard safety cap. A normal match ends earlier, when the ladder is finished or HP hits 0. */
+export const MAX_ROUNDS = 16;
+
 /**
+ * Max extra fraction of tier base damage for an instant answer. Linear down to 0 at the deadline.
+ * An instant tier-1 hit is 8 * 1.5 = 12; an answer at the deadline is just the base.
+ */
+export const SPEED_BONUS_MAX = 0.5;
+
+/**
+ * Flat chip when neither player is correct. 4 is half of the smallest hit (tier 1 base 8)
+ * and 4% of starting HP (100), so misses sting without competing with a real hit.
+ */
+export const MISS_DAMAGE = 4;
+
+/** Consecutive correct answers (combo) required to fire an ultimate on a round that player wins. */
+export const ULT_STREAK = 3;
+
+/**
+ * Owner C's question module only; the engine owns tier progression via ROUNDS_PER_TIER.
  * Questions asked in each tier before moving up. A full climb is QUESTIONS_PER_TIER * MAX_TIER questions
  * (tier 1, 2 questions, tier 2, 2 questions ... tier 6). Counted per tier, not by round number. TUNABLE.
  */
