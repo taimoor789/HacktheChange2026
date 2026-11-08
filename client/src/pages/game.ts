@@ -1,4 +1,5 @@
 import { CHARACTERS, characterSprite, findCharacter, preloadCharacter } from '../characters';
+import { mountBattle } from '../match/battle';
 import { currentMatch } from '../net/session';
 import { openPopup } from '../popup';
 import { getPlayer } from '../state';
@@ -51,8 +52,9 @@ export function createPage(): Page {
         <div class="fhud__side fhud__side--p1">
           <div class="fhud__portrait ${me.art ? 'is-art' : ''}">${characterSprite(me, 'right', 'still')}</div>
           <div class="fhud__meter">
-            <div class="fhud__health"><i></i></div>
-            <p class="fhud__name"></p>
+            <div class="fhud__health" role="img"><i></i></div>
+            <div class="fhud__ult" role="img"><i></i></div>
+            <div class="fhud__row"><p class="fhud__name"></p><p class="fhud__combo"></p></div>
           </div>
         </div>
 
@@ -60,8 +62,9 @@ export function createPage(): Page {
 
         <div class="fhud__side fhud__side--p2">
           <div class="fhud__meter">
-            <div class="fhud__health"><i></i></div>
-            <p class="fhud__name">OPPONENT</p>
+            <div class="fhud__health" role="img"><i></i></div>
+            <div class="fhud__ult" role="img"><i></i></div>
+            <div class="fhud__row"><p class="fhud__name"></p><p class="fhud__combo"></p></div>
           </div>
           <div class="fhud__portrait ${opponent.art ? 'is-art' : ''}">${characterSprite(opponent, 'left', 'still')}</div>
         </div>
@@ -72,6 +75,9 @@ export function createPage(): Page {
       <div class="fighter fighter--p2 ${opponent.art ? 'is-art' : ''}">${characterSprite(opponent, 'left')}</div>
 
       <button class="btn-back game__quit" type="button" aria-label="Leave match">&lt;</button>
+
+      <!-- round results and ultimate callouts (text only; cutscenes go in battle.ts) -->
+      <div class="game__banner" aria-live="polite"></div>
 
       <!-- BOTTOM 1/4: empty panels, filled by the backend -->
       <div class="desk">
@@ -109,6 +115,15 @@ export function createPage(): Page {
     if (entry.currentTime >= UI_IN_AT) showUI();
   });
 
+  /* ---------- the match ---------- */
+  const unmountBattle = session
+    ? mountBattle(el, session, {
+        onEnd: () => {
+          // TODO(OWNER B): end screen + review (next step)
+        },
+      })
+    : null;
+
   /* ---------- quit ---------- */
   let closePopup: (() => void) | null = null;
   el.querySelector('.game__quit')!.addEventListener('click', () => {
@@ -133,6 +148,8 @@ export function createPage(): Page {
     onShow() {
       if (started) return;
       started = true;
+      // The server starts round 1 right after match:found, so a live match shows the HUD at once.
+      if (session) showUI();
       if (reduce) {
         entry.hidden = true;
         void loop.play().catch(() => {});
@@ -147,6 +164,7 @@ export function createPage(): Page {
     destroy() {
       clearTimeout(fallback);
       closePopup?.();
+      unmountBattle?.();
       session?.leave(); // leaving the game page closes the connection (a forfeit mid-match)
       entrySfx.pause();
       for (const v of [entry, loop]) {

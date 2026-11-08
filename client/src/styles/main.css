@@ -849,7 +849,7 @@ body {
   left: 16px;
   right: 16px;
   bottom: 16px;
-  height: calc(25cqh - 16px);
+  height: calc(30cqh - 16px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -879,6 +879,264 @@ body {
 }
 .popup__title--danger { color: #ff5d6c; }
 
+/* ---------- HUD: live values ---------- */
+.fhud__health i {
+  transition: width 360ms steps(6);
+}
+.fhud__side.is-low .fhud__health i {
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.45) 0 4px, transparent 4px),
+    linear-gradient(to bottom, #ff7a6b, #d63a4a);
+}
+.fhud__ult {
+  height: 10px;
+  margin-top: 9px;
+  padding: 2px;
+  background: #000;
+  box-shadow: 0 0 0 2px #3c4a56, 0 0 0 4px #000;
+}
+.fhud__ult i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--c-blue);
+  transition: width 360ms steps(6);
+}
+.fhud__side--p1 .fhud__ult i { margin-left: auto; }
+.fhud__ult.is-full i {
+  background: var(--c-pink);
+  animation: ult-glow 600ms steps(2) infinite;
+}
+@keyframes ult-glow {
+  50% { background: var(--c-yellow); }
+}
+.fhud__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+}
+.fhud__side--p2 .fhud__row { flex-direction: row-reverse; }
+.fhud__row .fhud__name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.fhud__combo {
+  margin: 0;
+  flex: none;
+  font-size: 10px;
+  color: var(--c-lime);
+  text-shadow: 2px 2px 0 #000;
+}
+.fhud__timer.is-low {
+  color: #ff5d6c;
+  animation: blink 500ms steps(2) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0.55; }
+}
+
+/* ---------- round banner (text only) ---------- */
+.game__banner {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  width: min(560px, 90%);
+  text-align: center;
+  pointer-events: none;
+  visibility: hidden;
+}
+.game__banner.is-on {
+  visibility: visible;
+  animation: pop 160ms steps(4);
+}
+.game__banner p {
+  margin: 0 0 10px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--c-ink);
+  text-shadow: 3px 3px 0 #000, -2px -2px 0 #000;
+}
+.game__banner[data-tone='good'] p { color: var(--c-lime); }
+.game__banner[data-tone='bad'] p { color: #ff7a6b; }
+.game__banner[data-tone='ult'] p { color: var(--c-pink); font-size: 22px; }
+
+/* ---------- QUESTION pane ---------- */
+.q {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.q__meta {
+  margin: 0;
+  font-size: 8px;
+  color: #7d8a96;
+  letter-spacing: 1px;
+}
+.q__prompt {
+  margin: 0;
+  font-family: var(--font-term);
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--c-ink);
+  user-select: text;
+}
+.q__tip {
+  margin: 0;
+  font-size: 8px;
+  color: var(--c-green);
+}
+.q__form {
+  display: flex;
+  gap: 8px;
+}
+.q__input,
+.code-edit {
+  border: 0;
+  font-family: var(--font-term);
+  color: var(--c-ink);
+  caret-color: var(--c-lime);
+  background: #000;
+  user-select: text;
+  box-shadow: 0 0 0 3px #1b2630;
+}
+.q__input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 22px;
+}
+.q__input:focus,
+.code-edit:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--c-lime);
+}
+.q__send,
+.q__opt,
+.code__line {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.q__send {
+  flex: none;
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 10px;
+  color: #000;
+  background: var(--c-lime);
+  box-shadow: 0 4px 0 var(--c-green);
+}
+.q__send:hover:not(:disabled),
+.q__send:focus-visible {
+  outline: none;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.q__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.q__opt {
+  padding: 8px 10px;
+  text-align: left;
+  font-family: var(--font-term);
+  font-size: 20px;
+  background: #121a22;
+  box-shadow: 0 0 0 3px #1b2630;
+}
+.q__opt:hover:not(:disabled),
+.q__opt:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--c-lime);
+}
+.q__opt.is-picked { box-shadow: 0 0 0 3px var(--c-yellow); }
+.q :disabled { cursor: default; opacity: 0.5; }
+.q__opt.is-picked:disabled { opacity: 1; }
+.q__hint {
+  margin: 0;
+  min-height: 0;
+  font-size: 10px;
+  color: var(--c-blue);
+  opacity: 0;
+  transition: opacity 400ms steps(4);
+}
+.q__hint.is-on { opacity: 1; transition: none; }
+.q__status {
+  margin: 0;
+  font-size: 10px;
+  color: var(--c-yellow);
+}
+.q__status:empty { display: none; }
+.q__status[data-tone='good'] { color: var(--c-lime); }
+.q__status[data-tone='bad'] { color: #ff7a6b; }
+
+/* ---------- CODE pane ---------- */
+.code {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-term);
+  font-size: 20px;
+  line-height: 1.15;
+  user-select: text;
+}
+.code__line {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+.code__line {
+  padding: 1px 4px;
+  background: none;
+}
+.code__line:hover:not(:disabled),
+.code__line:focus-visible {
+  outline: none;
+  background: rgb(184 240 44 / 0.12);
+}
+.code__line.is-picked {
+  background: rgb(242 238 106 / 0.2);
+  box-shadow: inset 3px 0 0 var(--c-yellow);
+}
+.code__row:not(:has(.code__line)) { display: flex; gap: 12px; padding: 1px 4px; }
+.code__n {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  color: #4d5d6b;
+}
+.code__text {
+  font: inherit;
+  white-space: pre;
+  color: var(--c-ink);
+}
+.code__none {
+  margin: 0;
+  font-size: 9px;
+  color: #4d5d6b;
+}
+.pane__body.is-edit { padding: 18px 10px 10px; }
+.code-edit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  resize: none;
+  font-size: 20px;
+  line-height: 1.15;
+  white-space: pre;
+  tab-size: 4;
+}
+
 @media (max-width: 860px) {
   .fhud { left: 64px; right: 12px; gap: 8px; top: 12px; }
   .game__quit { top: 12px; left: 12px; }
@@ -887,7 +1145,7 @@ body {
   .fhud__health { height: 18px; }
   .fhud__timer { min-width: 0; font-size: 12px; padding: 8px 6px; }
   .fighter { --x: 26cqw; }
-  .desk { left: 12px; right: 12px; bottom: 12px; gap: 12px; height: calc(25cqh - 12px); }
+  .desk { left: 12px; right: 12px; bottom: 12px; gap: 12px; height: calc(30cqh - 12px); }
 }
 
 @media (max-width: 600px) {
