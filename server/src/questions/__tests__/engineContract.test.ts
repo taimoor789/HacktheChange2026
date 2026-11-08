@@ -66,7 +66,7 @@ describe('a typo hint never counts as correct', () => {
     const q = byId('t1-var-4'); // "What data type holds text?" -> string / str
     expect(isCorrect(q, 'strig')).toBe(false);
     expect(suggestAnswer(q, 'strig')).toBe('string');
-    expect(checkAnswer(q, 'strig')).toEqual({ status: 'suggest', suggestion: 'string' });
+    expect(checkAnswer(q, 'strig', 0)).toEqual({ status: 'suggest', suggestion: 'string' });
     // the hint is only a hint: confirming means submitting the full answer, which isCorrect judges as usual
     expect(isCorrect(q, 'string')).toBe(true);
   });
@@ -77,7 +77,7 @@ describe('a typo hint never counts as correct', () => {
       for (const answer of q.acceptedAnswers) {
         for (const typo of typosOf(answer)) {
           if (isCorrect(q, typo)) continue; // the typo happens to be another accepted spelling
-          const check = checkAnswer(q, typo);
+          const check = checkAnswer(q, typo, 0);
           expect(check.status, `${q.id} ${typo}`).not.toBe('correct');
           expect(isCorrect(q, typo), `${q.id} ${typo}`).toBe(false);
           if (check.status === 'suggest') {
@@ -100,7 +100,7 @@ describe('a typo hint never counts as correct', () => {
         ...q.acceptedAnswers.flatMap(typosOf),
       ]) {
         expect(
-          checkAnswer(q, input).status === 'correct',
+          checkAnswer(q, input, 0).status === 'correct',
           `${q.id} ${JSON.stringify(input.slice(0, 20))}`,
         ).toBe(isCorrect(q, input));
       }
@@ -110,7 +110,7 @@ describe('a typo hint never counts as correct', () => {
   it('rewrite_code never produces a suggestion', () => {
     for (const q of bank.filter((x) => x.type === 'rewrite_code')) {
       for (const input of [q.acceptedAnswers[0].slice(0, -2), q.code!, 'retrun x']) {
-        expect(checkAnswer(q, input).status).not.toBe('suggest');
+        expect(checkAnswer(q, input, 0).status).not.toBe('suggest');
       }
     }
   });
